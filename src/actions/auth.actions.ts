@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { loginSchema, registerSchema } from "@/lib/validations/auth.schema";
+import { ensureUserProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { routes } from "@/constants/routes";
 
@@ -34,8 +35,13 @@ export async function loginAction(_prevState: AuthActionState, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: getAuthErrorMessage(error.message) };
+
+  if (data.user) {
+    const { error: profileError } = await ensureUserProfile(supabase, data.user);
+    if (profileError) return { error: "Đăng nhập thành công nhưng chưa thể đồng bộ hồ sơ người dùng." };
+  }
 
   redirect(routes.dashboard);
 }
@@ -54,14 +60,7 @@ export async function registerAction(_prevState: AuthActionState, formData: Form
   if (error) return { error: getAuthErrorMessage(error.message) };
 
   if (data.user && data.session) {
-    const { error: profileError } = await supabase.from("profiles").upsert(
-      {
-        id: data.user.id,
-        full_name: fullName,
-      },
-      { onConflict: "id" },
-    );
-
+    const { error: profileError } = await ensureUserProfile(supabase, data.user, fullName);
     if (profileError) {
       return { error: "Tài khoản đã tạo nhưng chưa thể tạo hồ sơ người dùng. Vui lòng thử đăng nhập lại." };
     }
@@ -84,11 +83,12 @@ export async function googleLoginAction() {
   const headersList = await headers();
   const origin = headersList.get("origin");
   const supabase = await createClient();
+  const redirectTo = origin ? `${origin}/auth/callback` : "/auth/callback";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin ?? ""}/auth/callback`,
+      redirectTo,
       skipBrowserRedirect: true,
       queryParams: {
         access_type: "offline",

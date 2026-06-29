@@ -6,6 +6,7 @@ export type Database = {
       profiles: {
         Row: {
           id: string;
+          email: string | null;
           full_name: string | null;
           avatar_url: string | null;
           telegram_chat_id: string | null;
@@ -14,6 +15,7 @@ export type Database = {
         };
         Insert: {
           id: string;
+          email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
           telegram_chat_id?: string | null;
@@ -21,6 +23,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
           telegram_chat_id?: string | null;
@@ -172,6 +175,7 @@ export type Database = {
           description: string | null;
           assignee_id: string | null;
           reporter_id: string | null;
+          created_by: string | null;
           due_date: string | null;
           priority: "low" | "medium" | "high" | "urgent";
           position: number;
@@ -186,6 +190,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           reporter_id?: string | null;
+          created_by?: string | null;
           due_date?: string | null;
           priority?: "low" | "medium" | "high" | "urgent";
           position?: number;
@@ -198,6 +203,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           reporter_id?: string | null;
+          created_by?: string | null;
           due_date?: string | null;
           priority?: "low" | "medium" | "high" | "urgent";
           position?: number;

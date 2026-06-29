@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { routes } from "@/constants/routes";
 import type { Workspace, WorkspaceRole } from "@/types/workspace";
@@ -62,4 +62,29 @@ export async function getUserWorkspaces() {
   const rolesByWorkspaceId = new Map(memberships.map((membership) => [membership.workspace_id, membership.role]));
 
   return workspaces.map((workspace) => mapWorkspace(workspace, rolesByWorkspaceId.get(workspace.id)));
+}
+
+export async function getWorkspaceById(workspaceId: string) {
+  const supabase = await createClient();
+  const userId = await getCurrentUserId();
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (membershipError) throw new Error(membershipError.message);
+  if (!membership) notFound();
+
+  const { data: workspace, error } = await supabase
+    .from("workspaces")
+    .select("id, owner_id, name, slug, description, created_at, updated_at")
+    .eq("id", workspaceId)
+    .single();
+
+  if (error || !workspace) notFound();
+
+  return mapWorkspace(workspace, membership.role);
 }

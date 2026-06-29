@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { projectSchema } from "@/lib/validations/project.schema";
 import { createClient } from "@/lib/supabase/server";
 import { routes } from "@/constants/routes";
@@ -73,4 +74,36 @@ export async function createProjectAction(_prevState: ProjectActionState, formDa
   revalidatePath(`/projects/${project.id}`);
 
   return { success: "Project đã được tạo." };
+}
+
+export async function deleteProjectAction(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect(routes.login);
+
+  const { data: project, error: projectError } = await supabase.from("projects").select("id, workspace_id").eq("id", projectId).single();
+  if (projectError || !project) redirect(routes.projects);
+
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", project.workspace_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    redirect(`/projects/${projectId}`);
+  }
+
+  await supabase.from("projects").delete().eq("id", projectId);
+
+  revalidatePath(routes.projects);
+  revalidatePath(`/workspaces/${project.workspace_id}`);
+  redirect(routes.projects);
 }

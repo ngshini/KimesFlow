@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +13,8 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
   return (
     <Card>
       <CardContent className="space-y-4">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-md bg-blue-50 text-blue-600">
             <Building2 className="h-5 w-5" />
           </div>
@@ -22,6 +25,10 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
             </div>
             <p className="mt-1 text-sm text-slate-500">{workspace.description}</p>
           </div>
+          </div>
+          <Link className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-100" href={`/workspaces/${workspace.id}`}>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
         <p className="text-xs text-slate-400">/{workspace.slug}</p>
       </CardContent>

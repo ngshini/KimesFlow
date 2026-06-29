@@ -12,6 +12,7 @@ $$;
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  email text,
   full_name text,
   avatar_url text,
   telegram_chat_id text,
@@ -26,16 +27,18 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, avatar_url)
+  insert into public.profiles (id, email, full_name, avatar_url)
   values (
     new.id,
-    new.raw_user_meta_data ->> 'full_name',
-    new.raw_user_meta_data ->> 'avatar_url'
+    new.email,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
+    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture')
   )
   on conflict (id) do update
   set
-    full_name = excluded.full_name,
-    avatar_url = excluded.avatar_url,
+    email = excluded.email,
+    full_name = coalesce(excluded.full_name, public.profiles.full_name),
+    avatar_url = coalesce(excluded.avatar_url, public.profiles.avatar_url),
     updated_at = now();
 
   return new;
@@ -109,6 +112,7 @@ create table public.tasks (
   description text,
   assignee_id uuid references public.profiles(id) on delete set null,
   reporter_id uuid references public.profiles(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
   due_date date,
   priority text not null default 'medium' check (priority in ('low', 'medium', 'high', 'urgent')),
   position integer not null default 0,
@@ -176,6 +180,7 @@ create table public.notifications (
 );
 
 create index idx_workspaces_owner_id on public.workspaces(owner_id);
+create index idx_profiles_email on public.profiles(email);
 create index idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
 create index idx_workspace_members_user_id on public.workspace_members(user_id);
 create index idx_projects_workspace_id on public.projects(workspace_id);
@@ -185,6 +190,7 @@ create index idx_task_statuses_project_id on public.task_statuses(project_id);
 create index idx_tasks_project_id on public.tasks(project_id);
 create index idx_tasks_status_id on public.tasks(status_id);
 create index idx_tasks_assignee_id on public.tasks(assignee_id);
+create index idx_tasks_created_by on public.tasks(created_by);
 create index idx_subtasks_task_id on public.subtasks(task_id);
 create index idx_comments_task_id on public.comments(task_id);
 create index idx_comments_user_id on public.comments(user_id);
@@ -250,6 +256,21 @@ as $$
   select coalesce(public.workspace_role(target_workspace_id, target_user_id) in ('owner', 'admin'), false);
 $$;
 
+create or replace function public.shares_workspace_with(target_user_id uuid, viewer_user_id uuid default auth.uid())
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.workspace_members viewer
+    join public.workspace_members target on target.workspace_id = viewer.workspace_id
+    where viewer.user_id = viewer_user_id
+      and target.user_id = target_user_id
+  );
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
@@ -265,13 +286,7 @@ alter table public.notifications enable row level security;
 
 create policy "Users can read own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Workspace members can read member profiles" on public.profiles
-for select using (
-  exists (
-    select 1 from public.workspace_members viewer
-    join public.workspace_members target on target.workspace_id = viewer.workspace_id
-    where viewer.user_id = auth.uid() and target.user_id = profiles.id
-  )
-);
+for select using (auth.uid() = id or public.shares_workspace_with(profiles.id));
 create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 
@@ -288,7 +303,7 @@ create policy "Owners can manage workspaces" on public.workspaces for all using 
 
 create policy "Members can read workspace memberships" on public.workspace_members
 for select using (
-  user_id = auth.uid()
+  public.is_workspace_member(workspace_members.workspace_id)
 );
 
 create policy "Workspace admins can update members" on public.workspace_members
@@ -319,6 +334,9 @@ for select using (
 
 create policy "Workspace members can create projects" on public.projects
 for insert with check (public.can_write_workspace(projects.workspace_id));
+
+create policy "Workspace admins can delete projects" on public.projects
+for delete using (public.can_manage_workspace(projects.workspace_id));
 
 create policy "Project members can read project data" on public.project_members for select using (user_id = auth.uid());
 
@@ -360,6 +378,8 @@ for select using (
 
 create policy "Workspace members can create tasks" on public.tasks
 for insert with check (
+  created_by = auth.uid()
+  and
   exists (
     select 1 from public.projects p
     where p.id = tasks.project_id
@@ -476,8 +496,19 @@ with check (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
-create policy "Authenticated users can read task files" on storage.objects
+create policy "Workspace members can read task files" on storage.objects
 for select to authenticated
 using (
   bucket_id = 'task-attachments'
+  and exists (
+    select 1
+    from public.attachments a
+    left join public.tasks t on t.id = a.task_id
+    left join public.comments c on c.id = a.comment_id
+    left join public.tasks ct on ct.id = c.task_id
+    left join public.projects p on p.id = coalesce(t.project_id, ct.project_id)
+    where a.file_url = storage.objects.name
+      and p.workspace_id is not null
+      and public.is_workspace_member(p.workspace_id)
+  )
 );

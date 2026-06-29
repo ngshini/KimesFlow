@@ -3,7 +3,7 @@ import { deleteTaskAction } from "@/actions/task.actions";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { AttachmentList } from "@/components/task/attachment-list";
 import { AttachmentUploadForm } from "@/components/task/attachment-upload-form";
 import { CommentForm } from "@/components/task/comment-form";
@@ -80,10 +80,10 @@ export function TaskDetailPanel({ task, assignees, comments, attachments }: Task
             <form action={deleteTaskAction}>
               <input name="taskId" type="hidden" value={task.id} />
               <input name="projectId" type="hidden" value={task.projectId} />
-              <Button className="w-full" type="submit" variant="danger">
+              <ConfirmSubmitButton className="w-full" confirmMessage="Bạn chắc chắn muốn xóa task này?">
                 <Trash2 className="h-4 w-4" />
                 Xóa task
-              </Button>
+              </ConfirmSubmitButton>
             </form>
           </CardContent>
         </Card>

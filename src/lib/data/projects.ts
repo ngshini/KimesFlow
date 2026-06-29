@@ -74,5 +74,34 @@ export async function getProjectById(projectId: string) {
   const workspace = workspaces.find((item) => item.id === project.workspace_id);
   if (!workspace) notFound();
 
-  return mapProject(project, workspace.name);
+  return mapProject(project, workspace.name, workspace.role === "owner" || workspace.role === "admin" ? "owner" : undefined);
+}
+
+export async function getWorkspaceProjects(workspaceId: string) {
+  const supabase = await createClient();
+  const userId = await getCurrentUserId();
+
+  const { data: projects, error } = await supabase
+    .from("projects")
+    .select("id, workspace_id, name, slug, description, color, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  if (projects.length === 0) return [];
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("project_members")
+    .select("project_id, role")
+    .eq("user_id", userId)
+    .in(
+      "project_id",
+      projects.map((project) => project.id),
+    );
+
+  if (membershipError) throw new Error(membershipError.message);
+
+  const rolesByProjectId = new Map(memberships.map((membership) => [membership.project_id, membership.role]));
+
+  return projects.map((project) => mapProject(project, undefined, rolesByProjectId.get(project.id)));
 }

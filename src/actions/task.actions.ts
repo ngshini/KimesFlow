@@ -52,6 +52,7 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
       description: parsed.data.description || null,
       assignee_id: normalizeOptionalUuid(parsed.data.assigneeId),
       reporter_id: user.id,
+      created_by: user.id,
       due_date: normalizeOptionalDate(parsed.data.dueDate),
       priority: parsed.data.priority,
       position: (lastTask?.position ?? 0) + 1000,

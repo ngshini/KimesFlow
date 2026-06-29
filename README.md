@@ -40,6 +40,12 @@ Restart `npm run dev` after changing `.env.local`; Next.js only reads these valu
 
 `TELEGRAM_BOT_TOKEN` is required only for Telegram delivery. Task creation/update still succeeds if Telegram is not configured; notification history will be stored as `failed`.
 
+You can test Telegram delivery after configuring the variables:
+
+```bash
+curl "http://localhost:3000/api/telegram/test?secret=your-reminder-secret"
+```
+
 ## Google Login
 
 Enable Google OAuth before using the Google login button:
@@ -76,6 +82,12 @@ Open `http://localhost:3000`.
 
 The schema includes a trigger on `auth.users` that creates the matching row in `public.profiles` after sign up. Re-run the schema or apply the trigger section if you already created the database before the auth implementation.
 
+For an existing database, run this incremental hardening migration after the original schema:
+
+```text
+supabase/20260629_core_app_hardening.sql
+```
+
 ## Authentication
 
 - Supabase Auth is wired through `@supabase/ssr`.
@@ -102,11 +114,10 @@ npm run lint
 npm run build
 ```
 
-## Phase 2
+## Next Phase
 
-- Replace mock data with Supabase queries and server actions.
-- Add middleware session refresh and protected dashboard routes.
-- Implement CRUD for workspace, project, task, subtask and comments.
-- Add Supabase Storage uploads for attachments.
-- Add realtime comments, Kanban updates and notifications.
+- Add workspace invitations and member role management.
+- Add project edit/delete and project member management.
+- Add subtasks UI.
+- Add notification dropdown and mark-as-read.
 - Add tests for forms, server actions and critical user flows.

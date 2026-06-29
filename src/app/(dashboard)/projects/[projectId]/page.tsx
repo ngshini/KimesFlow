@@ -1,4 +1,5 @@
 import { KanbanBoard } from "@/components/kanban/kanban-board";
+import { ProjectDeleteButton } from "@/components/project/project-delete-button";
 import { TaskCreateForm } from "@/components/task/task-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           <p className="mt-1 text-sm text-slate-500">Workspace: {project.workspaceName}</p>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{project.description}</p>
         </div>
+        {project.role === "owner" ? <ProjectDeleteButton projectId={project.id} /> : null}
       </div>
       <Card>
         <CardContent className="grid gap-4 sm:grid-cols-3">

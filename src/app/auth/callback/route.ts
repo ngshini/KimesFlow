@@ -1,11 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { routes } from "@/constants/routes";
+import { ensureUserProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
+
+function getSafeNextPath(next: string | null) {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return routes.dashboard;
+  return next;
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") ?? routes.dashboard;
+  const next = getSafeNextPath(requestUrl.searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(new URL(`${routes.login}?error=missing_oauth_code`, requestUrl.origin));
@@ -18,18 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`${routes.login}?error=oauth_callback_failed`, requestUrl.origin));
   }
 
-  const metadata = data.user.user_metadata;
-  const fullName = metadata.full_name ?? metadata.name ?? data.user.email ?? null;
-  const avatarUrl = metadata.avatar_url ?? metadata.picture ?? null;
-
-  await supabase.from("profiles").upsert(
-    {
-      id: data.user.id,
-      full_name: fullName,
-      avatar_url: avatarUrl,
-    },
-    { onConflict: "id" },
-  );
+  await ensureUserProfile(supabase, data.user);
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));
 }

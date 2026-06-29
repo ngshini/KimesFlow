@@ -7,3 +7,9 @@ export const workspaceSchema = z.object({
 });
 
 export type WorkspaceInput = z.infer<typeof workspaceSchema>;
+
+export const workspaceUpdateSchema = workspaceSchema.extend({
+  workspaceId: z.uuid(),
+});
+
+export type WorkspaceUpdateInput = z.infer<typeof workspaceUpdateSchema>;
