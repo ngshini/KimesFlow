@@ -32,12 +32,31 @@ Then fill:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+TELEGRAM_CHAT_ID=optional-default-chat-id
 TELEGRAM_REMINDER_SECRET=optional-secret-for-reminder-route
 ```
 
 Restart `npm run dev` after changing `.env.local`; Next.js only reads these values when the dev server starts.
 
 `TELEGRAM_BOT_TOKEN` is required only for Telegram delivery. Task creation/update still succeeds if Telegram is not configured; notification history will be stored as `failed`.
+
+## Google Login
+
+Enable Google OAuth before using the Google login button:
+
+1. Open Supabase Dashboard > Authentication > Providers > Google.
+2. Enable Google and add your Google OAuth Client ID and Client Secret.
+3. Add this redirect URL in Google Cloud OAuth and Supabase:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+For Vercel, also add your deployed callback URL:
+
+```text
+https://your-vercel-domain.vercel.app/auth/callback
+```
 
 ## Run Local
 

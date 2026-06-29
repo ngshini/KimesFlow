@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { loginSchema, registerSchema } from "@/lib/validations/auth.schema";
 import { createClient } from "@/lib/supabase/server";
@@ -77,4 +78,28 @@ export async function logoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect(routes.login);
+}
+
+export async function googleLoginAction() {
+  const headersList = await headers();
+  const origin = headersList.get("origin");
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin ?? ""}/auth/callback`,
+      skipBrowserRedirect: true,
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
+  });
+
+  if (error || !data.url) {
+    redirect(`${routes.login}?error=google_oauth_failed`);
+  }
+
+  redirect(data.url);
 }

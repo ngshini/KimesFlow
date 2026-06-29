@@ -1,6 +1,7 @@
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+const telegramChatId = process.env.TELEGRAM_CHAT_ID;
 const telegramReminderSecret = process.env.TELEGRAM_REMINDER_SECRET;
 
 export function hasSupabaseEnv() {
@@ -23,6 +24,7 @@ export function getSupabaseEnv() {
 export function getTelegramEnv() {
   return {
     botToken: telegramBotToken,
+    defaultChatId: telegramChatId,
     reminderSecret: telegramReminderSecret,
   };
 }

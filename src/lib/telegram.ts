@@ -19,13 +19,14 @@ type TelegramApiResponse = {
 };
 
 export async function sendTelegramMessage(chatId: string | null | undefined, text: string): Promise<TelegramSendResult> {
-  const { botToken } = getTelegramEnv();
+  const { botToken, defaultChatId } = getTelegramEnv();
+  const targetChatId = chatId || defaultChatId;
 
   if (!botToken) {
     return { ok: false, error: "TELEGRAM_BOT_TOKEN chưa được cấu hình." };
   }
 
-  if (!chatId) {
+  if (!targetChatId) {
     return { ok: false, error: "Người nhận chưa cấu hình telegram_chat_id." };
   }
 
@@ -36,7 +37,7 @@ export async function sendTelegramMessage(chatId: string | null | undefined, tex
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: targetChatId,
         text,
         disable_web_page_preview: true,
       }),
