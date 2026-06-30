@@ -4,7 +4,7 @@ import type { DashboardData } from "@/lib/data/dashboard";
 
 export function CalendarList({ days }: { days: DashboardData["calendarDays"] }) {
   return (
-    <Card>
+    <Card className="scroll-mt-24" id="calendar">
       <CardHeader>
         <h2 className="text-base font-semibold text-slate-950">Calendar deadline</h2>
       </CardHeader>

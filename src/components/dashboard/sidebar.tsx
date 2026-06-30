@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Bell, Bot, CalendarDays, FolderKanban, LayoutDashboard, ListTodo, Settings, Workflow } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { routes } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +18,38 @@ const navItems = [
   { href: "/dashboard#settings", label: "Settings", icon: Settings },
 ];
 
+function useCurrentHash() {
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const updateHash = () => setHash(window.location.hash);
+
+    updateHash();
+    window.addEventListener("hashchange", updateHash);
+
+    return () => window.removeEventListener("hashchange", updateHash);
+  }, []);
+
+  return hash;
+}
+
+function isActiveNavItem(href: string, pathname: string, currentHash: string) {
+  const [hrefPath, hrefHash] = href.split("#");
+
+  if (hrefHash) {
+    return pathname === hrefPath && currentHash === `#${hrefHash}`;
+  }
+
+  if (href === routes.dashboard) {
+    return pathname === href && currentHash === "";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const currentHash = useCurrentHash();
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-slate-200/80 bg-white/90 backdrop-blur lg:block">
@@ -34,7 +65,7 @@ export function Sidebar() {
             key={item.href}
             className={cn(
               "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-              pathname === item.href || (item.href !== routes.dashboard && pathname.startsWith(item.href.split("#")[0]))
+              isActiveNavItem(item.href, pathname, currentHash)
                 ? "bg-blue-50 text-blue-700 shadow-sm"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
             )}
@@ -52,6 +83,7 @@ export function Sidebar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const currentHash = useCurrentHash();
 
   return (
     <div className="sticky bottom-0 z-30 border-t border-slate-200 bg-white/95 p-2 backdrop-blur lg:hidden">
@@ -61,7 +93,7 @@ export function MobileNav() {
             key={item.href}
             className={cn(
               "flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium",
-              pathname === item.href || pathname.startsWith(item.href) ? "bg-blue-50 text-blue-700" : "text-slate-500",
+              isActiveNavItem(item.href, pathname, currentHash) ? "bg-blue-50 text-blue-700" : "text-slate-500",
             )}
             href={item.href}
             prefetch
