@@ -16,11 +16,13 @@ import {
   updateTaskSchema,
   updateTaskStatusSchema,
 } from "@/lib/validations/task.schema";
+import type { Task } from "@/types/task";
 import { z } from "zod";
 
 export type TaskActionState = {
   error?: string;
   success?: string;
+  task?: Task;
 };
 
 const aiBulkTaskSchema = z.object({
@@ -47,6 +49,38 @@ function normalizeOptionalDate(value?: string) {
   return value && value.length > 0 ? value : null;
 }
 
+function mapCreatedTask(row: {
+  id: string;
+  project_id: string;
+  status_id: string;
+  title: string;
+  description: string | null;
+  assignee_id: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  priority: Task["priority"];
+  position: number;
+}, assignee?: { id: string; name: string; avatarUrl?: string | null } | null): Task {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    statusId: row.status_id,
+    title: row.title,
+    description: row.description,
+    assignee: assignee ?? null,
+    startDate: row.start_date,
+    dueDate: row.due_date,
+    completedAt: row.completed_at,
+    priority: row.priority,
+    position: row.position,
+    commentCount: 0,
+    attachmentCount: 0,
+    subtaskCount: 0,
+    completedSubtaskCount: 0,
+  };
+}
+
 export async function createTaskAction(_prevState: TaskActionState, formData: FormData): Promise<TaskActionState> {
   const parsed = taskSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
@@ -57,6 +91,51 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Bạn cần đăng nhập để tạo task." };
+
+  const { data: project, error: projectError } = await supabase
+    .from("projects")
+    .select("id, workspace_id")
+    .eq("id", parsed.data.projectId)
+    .single();
+
+  if (projectError || !project) return { error: projectError?.message ?? "Không tìm thấy project." };
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", project.workspace_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membershipError) return { error: membershipError.message };
+  const { data: projectMembership, error: projectMembershipError } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", parsed.data.projectId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (projectMembershipError) return { error: projectMembershipError.message };
+
+  const canCreateTask =
+    membership?.role === "owner" ||
+    membership?.role === "admin" ||
+    membership?.role === "member" ||
+    projectMembership?.role === "owner" ||
+    projectMembership?.role === "admin" ||
+    projectMembership?.role === "member";
+
+  if (!canCreateTask) return { error: "Bạn không có quyền tạo task trong project này." };
+
+  const { data: status, error: statusError } = await supabase
+    .from("task_statuses")
+    .select("id")
+    .eq("id", parsed.data.statusId)
+    .eq("project_id", parsed.data.projectId)
+    .maybeSingle();
+
+  if (statusError) return { error: statusError.message };
+  if (!status) return { error: "Trạng thái không thuộc project hiện tại." };
 
   const { data: lastTask, error: positionError } = await supabase
     .from("tasks")
@@ -84,12 +163,29 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
       priority: parsed.data.priority,
       position: (lastTask?.position ?? 0) + 1000,
     })
-    .select("id")
+    .select("id, project_id, status_id, title, description, assignee_id, start_date, due_date, completed_at, priority, position")
     .single();
 
   if (error) return { error: error.message };
 
+  let mappedTask: Task | undefined;
   if (task) {
+    const assigneeId = normalizeOptionalUuid(parsed.data.assigneeId);
+    const { data: assigneeProfile } = assigneeId
+      ? await supabase.from("profiles").select("id, full_name, avatar_url").eq("id", assigneeId).maybeSingle()
+      : { data: null };
+
+    mappedTask = mapCreatedTask(
+      task,
+      assigneeProfile
+        ? {
+            id: assigneeProfile.id,
+            name: assigneeProfile.full_name ?? "Người dùng",
+            avatarUrl: assigneeProfile.avatar_url,
+          }
+        : null,
+    );
+
     const context = await getTaskAccessContext(task.id);
     if (context.data) {
       await recordActivity(supabase, {
@@ -101,7 +197,6 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
         metadata: { title: parsed.data.title },
       });
 
-      const assigneeId = normalizeOptionalUuid(parsed.data.assigneeId);
       if (assigneeId) {
         await createInAppNotification(supabase, {
           workspaceId: context.data.workspaceId,
@@ -112,12 +207,21 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
           title: "Bạn được giao task mới",
           message: parsed.data.title,
         });
-        await createTelegramNotification(supabase, {
+        void createTelegramNotification(supabase, {
           workspaceId: context.data.workspaceId,
           projectId: context.data.projectId,
           taskId: task.id,
           userId: assigneeId,
           title: "Bạn được giao task mới",
+          body: `${parsed.data.title}${parsed.data.dueDate ? `\nDeadline: ${parsed.data.dueDate}` : ""}`,
+        });
+      } else {
+        void createTelegramNotification(supabase, {
+          workspaceId: context.data.workspaceId,
+          projectId: context.data.projectId,
+          taskId: task.id,
+          userId: user.id,
+          title: "Task mới đã được tạo",
           body: `${parsed.data.title}${parsed.data.dueDate ? `\nDeadline: ${parsed.data.dueDate}` : ""}`,
         });
       }
@@ -126,7 +230,7 @@ export async function createTaskAction(_prevState: TaskActionState, formData: Fo
 
   revalidatePath(`/projects/${parsed.data.projectId}`);
 
-  return { success: "Task đã được tạo." };
+  return { success: "Task đã được tạo.", task: mappedTask };
 }
 
 export async function updateTaskAction(_prevState: TaskActionState, formData: FormData): Promise<TaskActionState> {

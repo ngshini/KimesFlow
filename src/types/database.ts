@@ -139,7 +139,7 @@ export type Database = {
           id: string;
           project_id: string;
           user_id: string;
-          role: "owner" | "manager" | "member" | "viewer";
+          role: "owner" | "admin" | "member" | "viewer";
           created_at: string;
           updated_at: string;
         };
@@ -147,13 +147,43 @@ export type Database = {
           id?: string;
           project_id: string;
           user_id: string;
-          role?: "owner" | "manager" | "member" | "viewer";
+          role?: "owner" | "admin" | "member" | "viewer";
           created_at?: string;
           updated_at?: string;
         };
         Update: {
-          role?: "owner" | "manager" | "member" | "viewer";
+          role?: "owner" | "admin" | "member" | "viewer";
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      workspace_invites: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          project_id: string | null;
+          email: string | null;
+          role: "owner" | "admin" | "member" | "viewer";
+          token: string;
+          invited_by: string;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          project_id?: string | null;
+          email?: string | null;
+          role?: "owner" | "admin" | "member" | "viewer";
+          token: string;
+          invited_by: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
         };
         Relationships: [];
       };
@@ -410,7 +440,17 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      accept_workspace_invite: {
+        Args: {
+          invite_token: string;
+        };
+        Returns: {
+          workspace_id: string;
+          project_id: string | null;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

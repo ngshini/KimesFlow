@@ -1,0 +1,17 @@
+create index if not exists idx_workspace_members_user_id_perf on public.workspace_members(user_id);
+create index if not exists idx_workspace_members_workspace_id_perf on public.workspace_members(workspace_id);
+create index if not exists idx_project_members_user_id_perf on public.project_members(user_id);
+create index if not exists idx_project_members_project_id_perf on public.project_members(project_id);
+create index if not exists idx_projects_workspace_id_perf on public.projects(workspace_id);
+create index if not exists idx_task_statuses_project_position_perf on public.task_statuses(project_id, position);
+create index if not exists idx_tasks_project_id_perf on public.tasks(project_id);
+create index if not exists idx_tasks_status_id_perf on public.tasks(status_id);
+create index if not exists idx_tasks_assignee_id_perf on public.tasks(assignee_id);
+create index if not exists idx_tasks_created_by_perf on public.tasks(created_by);
+create index if not exists idx_tasks_project_status_position_perf on public.tasks(project_id, status_id, position);
+create index if not exists idx_tasks_due_date_perf on public.tasks(due_date);
+create index if not exists idx_comments_task_created_at_perf on public.comments(task_id, created_at);
+create index if not exists idx_attachments_task_id_perf on public.attachments(task_id);
+create index if not exists idx_attachments_comment_id_perf on public.attachments(comment_id);
+create index if not exists idx_notifications_user_read_created_perf on public.notifications(user_id, read_at, created_at desc);
+create index if not exists idx_notifications_user_unread_created_perf on public.notifications(user_id, is_read, created_at desc);

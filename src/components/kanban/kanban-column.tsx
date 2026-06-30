@@ -16,8 +16,8 @@ export function KanbanColumn({ id, title, count, color, children }: KanbanColumn
   const { setNodeRef } = useDroppable({ id });
 
   return (
-    <section ref={setNodeRef} className="flex min-h-[520px] w-80 shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50" data-column-id={id}>
-      <div className="flex items-center justify-between border-b border-slate-200 p-4">
+    <section ref={setNodeRef} className="flex min-h-[560px] w-80 shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50/80 shadow-sm" data-column-id={id}>
+      <div className="flex items-center justify-between border-b border-slate-200/80 p-4">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color ?? "#64748b" }} />
           <h3 className="text-sm font-semibold text-slate-800">{title}</h3>

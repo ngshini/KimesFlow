@@ -17,9 +17,10 @@ function GoogleSubmitButton() {
   );
 }
 
-export function GoogleAuthButton() {
+export function GoogleAuthButton({ next = "" }: { next?: string }) {
   return (
     <form action={googleLoginAction}>
+      <input name="next" type="hidden" value={next} />
       <GoogleSubmitButton />
     </form>
   );

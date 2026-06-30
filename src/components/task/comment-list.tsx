@@ -1,5 +1,8 @@
 import { format } from "date-fns";
+import { Trash2 } from "lucide-react";
+import { deleteCommentAction } from "@/actions/comment.actions";
 import { Avatar } from "@/components/ui/avatar";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import type { TaskComment } from "@/types/task";
 
 type CommentListProps = {
@@ -23,6 +26,20 @@ export function CommentList({ comments }: CommentListProps) {
                 <time className="text-xs text-slate-400">{format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}</time>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{comment.content}</p>
+              {comment.canDelete ? (
+                <form action={deleteCommentAction} className="mt-3">
+                  <input name="commentId" type="hidden" value={comment.id} />
+                  <input name="taskId" type="hidden" value={comment.taskId} />
+                  <ConfirmSubmitButton
+                    className="h-8 px-2 text-xs"
+                    confirmMessage="Bạn chắc chắn muốn xóa bình luận này?"
+                    variant="secondary"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Xóa
+                  </ConfirmSubmitButton>
+                </form>
+              ) : null}
             </div>
           </div>
         </article>

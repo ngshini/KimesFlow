@@ -12,6 +12,12 @@ export type AuthActionState = {
   success?: string;
 };
 
+function getSafeNextPath(next: FormDataEntryValue | null) {
+  const value = typeof next === "string" ? next : "";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return routes.dashboard;
+  return value;
+}
+
 function getAuthErrorMessage(message: string) {
   const normalized = message.toLowerCase();
 
@@ -33,6 +39,7 @@ function getAuthErrorMessage(message: string) {
 export async function loginAction(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
+  const next = getSafeNextPath(formData.get("next"));
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -43,7 +50,7 @@ export async function loginAction(_prevState: AuthActionState, formData: FormDat
     if (profileError) return { error: "Đăng nhập thành công nhưng chưa thể đồng bộ hồ sơ người dùng." };
   }
 
-  redirect(routes.dashboard);
+  redirect(next);
 }
 
 export async function registerAction(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -79,11 +86,12 @@ export async function logoutAction() {
   redirect(routes.login);
 }
 
-export async function googleLoginAction() {
+export async function googleLoginAction(formData: FormData) {
   const headersList = await headers();
   const origin = headersList.get("origin");
   const supabase = await createClient();
-  const redirectTo = origin ? `${origin}/auth/callback` : "/auth/callback";
+  const next = getSafeNextPath(formData.get("next"));
+  const redirectTo = origin ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : `/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

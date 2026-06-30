@@ -7,14 +7,21 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { moveTaskAction } from "@/actions/task.actions";
 import { KanbanColumn } from "@/components/kanban/kanban-column";
+import { QuickAddTask } from "@/components/kanban/quick-add-task";
 import { TaskCard } from "@/components/task/task-card";
 import { createClient } from "@/lib/supabase/client";
 import type { Task, TaskStatus } from "@/types/task";
+
+type AssigneeOption = {
+  id: string;
+  name: string;
+};
 
 type KanbanBoardProps = {
   projectId: string;
   statuses: TaskStatus[];
   tasks: Task[];
+  assignees: AssigneeOption[];
 };
 
 function SortableTask({ task }: { task: Task }) {
@@ -43,7 +50,41 @@ function getNextPosition(columnTasks: Task[], insertIndex: number) {
   return between > previous.position ? between : previous.position + 1;
 }
 
-export function KanbanBoard({ projectId, statuses, tasks }: KanbanBoardProps) {
+type RealtimeTaskRow = {
+  id: string;
+  project_id: string;
+  status_id: string;
+  title: string;
+  description: string | null;
+  assignee_id: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  priority: Task["priority"];
+  position: number;
+};
+
+function mapRealtimeTask(row: RealtimeTaskRow): Task {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    statusId: row.status_id,
+    title: row.title,
+    description: row.description,
+    assignee: null,
+    startDate: row.start_date,
+    dueDate: row.due_date,
+    completedAt: row.completed_at,
+    priority: row.priority,
+    position: row.position,
+    commentCount: 0,
+    attachmentCount: 0,
+    subtaskCount: 0,
+    completedSubtaskCount: 0,
+  };
+}
+
+export function KanbanBoard({ projectId, statuses, tasks, assignees }: KanbanBoardProps) {
   const [items, setItems] = useState(tasks);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -54,7 +95,32 @@ export function KanbanBoard({ projectId, statuses, tasks }: KanbanBoardProps) {
     const supabase = createClient();
     const channel = supabase
       .channel(`project-kanban-${projectId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` }, () => router.refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const oldTask = payload.old as Pick<RealtimeTaskRow, "id">;
+          setItems((current) => current.filter((task) => task.id !== oldTask.id));
+          return;
+        }
+
+        const nextTask = mapRealtimeTask(payload.new as RealtimeTaskRow);
+        setItems((current) => {
+          const existing = current.find((task) => task.id === nextTask.id);
+          if (!existing) return [...current, nextTask];
+          return current.map((task) =>
+            task.id === nextTask.id
+              ? {
+                  ...task,
+                  ...nextTask,
+                  assignee: task.assignee,
+                  commentCount: task.commentCount,
+                  attachmentCount: task.attachmentCount,
+                  subtaskCount: task.subtaskCount,
+                  completedSubtaskCount: task.completedSubtaskCount,
+                }
+              : task,
+          );
+        });
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "task_statuses", filter: `project_id=eq.${projectId}` }, () => router.refresh())
       .subscribe();
 
@@ -123,6 +189,14 @@ export function KanbanBoard({ projectId, statuses, tasks }: KanbanBoardProps) {
                   <SortableTask key={task.id} task={task} />
                 ))}
               </SortableContext>
+              <QuickAddTask
+                assignees={assignees}
+                projectId={projectId}
+                statusId={status.id}
+                onCreated={(task) => {
+                  setItems((current) => (current.some((item) => item.id === task.id) ? current : [...current, task]));
+                }}
+              />
             </KanbanColumn>
           ))}
         </div>

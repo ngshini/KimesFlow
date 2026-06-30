@@ -27,12 +27,15 @@ type TaskDetailPanelProps = {
 
 export function TaskDetailPanel({ task, assignees, comments, attachments, subtasks }: TaskDetailPanelProps) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <TaskRealtimeRefresh taskId={task.id} />
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-950">{task.title}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Task detail</p>
+              <h1 className="mt-2 text-2xl font-semibold text-slate-950">{task.title}</h1>
+            </div>
             <Badge className="bg-blue-100 text-blue-700">{task.priority}</Badge>
           </div>
         </CardHeader>
@@ -43,7 +46,7 @@ export function TaskDetailPanel({ task, assignees, comments, attachments, subtas
               <TaskEditForm assignees={assignees} task={task} />
             </div>
           </section>
-          <section className="rounded-lg border border-slate-200 p-5">
+          <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
             <h2 className="text-sm font-semibold text-slate-900">Subtask</h2>
             <div className="mt-4">
               <SubtaskForm taskId={task.id} />
@@ -52,7 +55,7 @@ export function TaskDetailPanel({ task, assignees, comments, attachments, subtas
               <SubtaskList subtasks={subtasks} />
             </div>
           </section>
-          <section className="rounded-lg border border-dashed border-slate-300 p-5">
+          <section className="rounded-xl border border-dashed border-slate-300 bg-white p-5">
             <h2 className="text-sm font-semibold text-slate-900">Comment</h2>
             <div className="mt-4">
               <CommentForm taskId={task.id} />
@@ -64,7 +67,7 @@ export function TaskDetailPanel({ task, assignees, comments, attachments, subtas
         </CardContent>
       </Card>
       <aside className="space-y-4">
-        <Card>
+        <Card className="sticky top-24">
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
               <Avatar name={task.assignee?.name ?? "Unassigned"} src={task.assignee?.avatarUrl} />

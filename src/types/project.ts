@@ -1,4 +1,4 @@
-export type ProjectRole = "owner" | "manager" | "member" | "viewer";
+export type ProjectRole = "owner" | "admin" | "member" | "viewer";
 export type ProjectStatus = "planned" | "active" | "paused" | "completed" | "archived";
 
 export type Project = {

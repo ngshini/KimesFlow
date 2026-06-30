@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { createTaskAction, type TaskActionState } from "@/actions/task.actions";
 import { PRIORITIES } from "@/constants/task-status";
@@ -25,12 +25,14 @@ type TaskCreateFormProps = {
 
 export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFormProps) {
   const firstStatusId = statuses[0]?.id ?? "";
+  const [submitMode, setSubmitMode] = useState<"create" | "create-more">("create");
   const [isTransitionPending, startTransition] = useTransition();
   const [state, formAction, isActionPending] = useActionState(createTaskAction, {} satisfies TaskActionState);
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors },
   } = useForm<TaskInput>({
     resolver: zodResolver(taskSchema),
@@ -48,9 +50,10 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
 
   useEffect(() => {
     if (state.success) {
+      const currentStatusId = getValues("statusId") || firstStatusId;
       reset({
         projectId,
-        statusId: firstStatusId,
+        statusId: submitMode === "create-more" ? currentStatusId : firstStatusId,
         title: "",
         description: "",
         assigneeId: "",
@@ -59,19 +62,18 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
         priority: "medium",
       });
     }
-  }, [firstStatusId, projectId, reset, state.success]);
+  }, [firstStatusId, getValues, projectId, reset, state.success, submitMode]);
 
   const isPending = isTransitionPending || isActionPending;
 
   return (
     <Card>
       <CardHeader>
-        <h2 className="text-base font-semibold text-slate-950">Tạo task</h2>
-        <p className="mt-1 text-sm text-slate-500">Task mới sẽ được lưu vào project hiện tại.</p>
+        <h2 className="text-base font-semibold text-slate-950">Tạo task nhanh</h2>
       </CardHeader>
       <CardContent>
         <form
-          className="grid gap-4 lg:grid-cols-[1fr_180px_180px_140px_auto]"
+          className="grid gap-4 lg:grid-cols-[1fr_180px_180px_140px_180px]"
           noValidate
           onSubmit={handleSubmit((values) => {
             const formData = new FormData();
@@ -113,16 +115,25 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
               </option>
             ))}
           </select>
-          <Button disabled={isPending || statuses.length === 0} type="submit">
-            {isPending ? "Đang tạo..." : "Tạo"}
-          </Button>
-          <Input className="lg:col-span-2" type="date" {...register("startDate")} />
-          <Input className="lg:col-span-2" type="date" {...register("dueDate")} />
-          <div className="lg:col-span-1" />
-          <div className="space-y-1.5 lg:col-span-5">
-            <Textarea placeholder="Mô tả task" {...register("description")} />
-            {errors.description?.message ? <p className="text-xs text-rose-600">{errors.description.message}</p> : null}
+          <Input type="date" {...register("dueDate")} />
+          <div className="flex gap-2 lg:col-span-5">
+            <Button disabled={isPending || statuses.length === 0} type="submit" onClick={() => setSubmitMode("create")}>
+              {isPending && submitMode === "create" ? "Đang tạo..." : "Tạo"}
+            </Button>
+            <Button disabled={isPending || statuses.length === 0} type="submit" variant="secondary" onClick={() => setSubmitMode("create-more")}>
+              {isPending && submitMode === "create-more" ? "Đang tạo..." : "Tạo thêm"}
+            </Button>
           </div>
+          <details className="lg:col-span-5">
+            <summary className="cursor-pointer text-sm font-medium text-slate-600">Tùy chọn nâng cao</summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <Input type="date" {...register("startDate")} />
+              <div className="space-y-1.5 md:col-span-2">
+                <Textarea placeholder="Mô tả task" {...register("description")} />
+                {errors.description?.message ? <p className="text-xs text-rose-600">{errors.description.message}</p> : null}
+              </div>
+            </div>
+          </details>
           {state.error ? <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 lg:col-span-5">{state.error}</p> : null}
           {state.success ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 lg:col-span-5">{state.success}</p> : null}
         </form>

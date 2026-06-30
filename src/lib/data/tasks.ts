@@ -244,8 +244,20 @@ export async function getTaskSubtasks(taskId: string) {
 }
 
 export async function getTaskComments(taskId: string) {
-  await getTaskById(taskId);
+  const task = await getTaskById(taskId);
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const project = await getProjectById(task.projectId);
+  const { data: membership } = user
+    ? await supabase
+        .from("workspace_members")
+        .select("role")
+        .eq("workspace_id", project.workspaceId)
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
   const { data: comments, error } = await supabase
     .from("comments")
     .select("id, task_id, user_id, content, created_at")
@@ -279,6 +291,7 @@ export async function getTaskComments(taskId: string) {
       taskId: comment.task_id,
       content: comment.content,
       createdAt: comment.created_at,
+      canDelete: comment.user_id === user?.id || membership?.role === "owner" || membership?.role === "admin",
       author,
     };
   });
@@ -292,7 +305,7 @@ export async function getTaskAttachments(taskId: string) {
   const attachmentFilter = commentIds.length > 0 ? `task_id.eq.${taskId},comment_id.in.(${commentIds.join(",")})` : `task_id.eq.${taskId}`;
   const { data: attachments, error } = await supabase
     .from("attachments")
-    .select("id, task_id, uploaded_by, file_url, file_path, file_name, file_type, mime_type, file_size, created_at")
+    .select("id, task_id, comment_id, uploaded_by, file_url, file_path, file_name, file_type, mime_type, file_size, created_at")
     .or(attachmentFilter)
     .order("created_at", { ascending: false });
 
@@ -340,6 +353,144 @@ export async function getTaskAttachments(taskId: string) {
   });
 }
 
+export async function getTaskDetailData(taskId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: taskRow, error: taskError } = await supabase
+    .from("tasks")
+    .select("id, project_id, status_id, title, description, assignee_id, start_date, due_date, completed_at, priority, position")
+    .eq("id", taskId)
+    .single();
+
+  if (taskError || !taskRow) notFound();
+
+  const project = await getProjectById(taskRow.project_id);
+
+  const [
+    { data: workspaceMembers, error: workspaceMemberError },
+    { data: projectMembers, error: projectMemberError },
+    { data: comments, error: commentError },
+    { data: subtasks, error: subtaskError },
+  ] = await Promise.all([
+    supabase.from("workspace_members").select("user_id, role").eq("workspace_id", project.workspaceId),
+    supabase.from("project_members").select("user_id").eq("project_id", project.id),
+    supabase.from("comments").select("id, task_id, user_id, content, created_at").eq("task_id", taskId).order("created_at", { ascending: true }),
+    supabase
+      .from("subtasks")
+      .select("id, task_id, title, description, is_completed, position, created_at, updated_at")
+      .eq("task_id", taskId)
+      .order("position", { ascending: true }),
+  ]);
+
+  if (workspaceMemberError) throw new Error(workspaceMemberError.message);
+  if (projectMemberError) throw new Error(projectMemberError.message);
+  if (commentError) throw new Error(commentError.message);
+  if (subtaskError) throw new Error(subtaskError.message);
+
+  const commentIds = comments.map((comment) => comment.id);
+  const attachmentFilter = commentIds.length > 0 ? `task_id.eq.${taskId},comment_id.in.(${commentIds.join(",")})` : `task_id.eq.${taskId}`;
+  const { data: attachments, error: attachmentError } = await supabase
+    .from("attachments")
+    .select("id, task_id, comment_id, uploaded_by, file_url, file_path, file_name, file_type, mime_type, file_size, created_at")
+    .or(attachmentFilter)
+    .order("created_at", { ascending: false });
+
+  if (attachmentError) throw new Error(attachmentError.message);
+
+  const userIds = [
+    ...new Set([
+      taskRow.assignee_id,
+      ...workspaceMembers.map((member) => member.user_id),
+      ...projectMembers.map((member) => member.user_id),
+      ...comments.map((comment) => comment.user_id),
+      ...attachments.map((attachment) => attachment.uploaded_by),
+    ].filter((id): id is string => Boolean(id))),
+  ];
+
+  const { data: profiles, error: profileError } =
+    userIds.length > 0 ? await supabase.from("profiles").select("id, full_name, email, avatar_url").in("id", userIds) : { data: [], error: null };
+
+  if (profileError) throw new Error(profileError.message);
+
+  const profilesById = new Map(
+    profiles.map((profile) => [
+      profile.id,
+      {
+        id: profile.id,
+        name: profile.full_name ?? profile.email ?? "Người dùng",
+        avatarUrl: profile.avatar_url,
+      },
+    ]),
+  );
+
+  const signedResults = await Promise.all(
+    attachments.map(async (attachment) => {
+      const { data } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrl(attachment.file_url, 60 * 10);
+      return [attachment.id, data?.signedUrl ?? null] as const;
+    }),
+  );
+  const signedUrlById = new Map(signedResults);
+
+  const commentsById = new Map(comments.map((comment) => [comment.id, comment.task_id]));
+  const currentMembership = workspaceMembers.find((member) => member.user_id === user?.id);
+  const task = mapTask(
+    taskRow,
+    taskRow.assignee_id ? profilesById.get(taskRow.assignee_id) : null,
+    comments.length,
+    countAttachmentsByTask(attachments, commentsById).get(taskId) ?? 0,
+    subtasks.length,
+    subtasks.filter((subtask) => subtask.is_completed).length,
+  );
+
+  return {
+    task,
+    assignees: [...new Set([...workspaceMembers.map((member) => member.user_id), ...projectMembers.map((member) => member.user_id)])].flatMap((userId) => {
+      const profile = profilesById.get(userId);
+      return profile ? [profile] : [];
+    }),
+    comments: comments.map((comment): TaskComment => {
+      const author = profilesById.get(comment.user_id) ?? { id: comment.user_id, name: "Người dùng" };
+      return {
+        id: comment.id,
+        taskId: comment.task_id,
+        content: comment.content,
+        createdAt: comment.created_at,
+        canDelete: comment.user_id === user?.id || currentMembership?.role === "owner" || currentMembership?.role === "admin",
+        author,
+      };
+    }),
+    subtasks: subtasks.map(
+      (subtask): Subtask => ({
+        id: subtask.id,
+        taskId: subtask.task_id,
+        title: subtask.title,
+        description: subtask.description,
+        isCompleted: subtask.is_completed,
+        position: subtask.position,
+        createdAt: subtask.created_at,
+        updatedAt: subtask.updated_at,
+      }),
+    ),
+    attachments: attachments.map((attachment): TaskAttachment => {
+      const uploadedBy = profilesById.get(attachment.uploaded_by) ?? { id: attachment.uploaded_by, name: "Người dùng" };
+      return {
+        id: attachment.id,
+        taskId: attachment.task_id ?? taskId,
+        fileUrl: attachment.file_url,
+        fileName: attachment.file_name,
+        fileType: attachment.mime_type ?? attachment.file_type,
+        fileSize: attachment.file_size,
+        signedUrl: signedUrlById.get(attachment.id) ?? null,
+        createdAt: attachment.created_at,
+        uploadedBy,
+      };
+    }),
+  };
+}
+
 export async function getProjectAssignees(projectId: string) {
   const project = await getProjectById(projectId);
   const supabase = await createClient();
@@ -347,7 +498,10 @@ export async function getProjectAssignees(projectId: string) {
   const { data: members, error } = await supabase.from("workspace_members").select("user_id").eq("workspace_id", project.workspaceId);
   if (error) throw new Error(error.message);
 
-  const userIds = members.map((member) => member.user_id);
+  const { data: projectMembers, error: projectMemberError } = await supabase.from("project_members").select("user_id").eq("project_id", projectId);
+  if (projectMemberError) throw new Error(projectMemberError.message);
+
+  const userIds = [...new Set([...members.map((member) => member.user_id), ...projectMembers.map((member) => member.user_id)])];
   if (userIds.length === 0) return [];
 
   const { data: profiles, error: profileError } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds);

@@ -15,6 +15,11 @@ const commentSchema = z.object({
   content: z.string().trim().min(1, "Nội dung bình luận không được trống").max(4000, "Bình luận tối đa 4000 ký tự"),
 });
 
+const deleteCommentSchema = z.object({
+  commentId: z.uuid(),
+  taskId: z.uuid(),
+});
+
 export type CommentActionState = {
   error?: string;
   success?: string;
@@ -99,6 +104,53 @@ export async function createCommentAction(_prevState: CommentActionState, formDa
   revalidatePath(`/projects/${context.data.projectId}`);
 
   return { success: "Bình luận đã được thêm." };
+}
+
+export async function deleteCommentAction(formData: FormData) {
+  const parsed = deleteCommentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const context = await getTaskAccessContext(parsed.data.taskId);
+  if (context.error || !context.data) return;
+
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", context.data.workspaceId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { data: comment } = await supabase
+    .from("comments")
+    .select("user_id")
+    .eq("id", parsed.data.commentId)
+    .eq("task_id", parsed.data.taskId)
+    .maybeSingle();
+
+  if (!comment) return;
+
+  const canDelete = comment.user_id === user.id || membership?.role === "owner" || membership?.role === "admin";
+  if (!canDelete) return;
+
+  await supabase.from("comments").delete().eq("id", parsed.data.commentId).eq("task_id", parsed.data.taskId);
+
+  await recordActivity(supabase, {
+    workspaceId: context.data.workspaceId,
+    projectId: context.data.projectId,
+    taskId: parsed.data.taskId,
+    userId: user.id,
+    action: "comment.deleted",
+    metadata: { taskTitle: context.data.taskTitle },
+  });
+
+  revalidatePath(`/tasks/${parsed.data.taskId}`);
+  revalidatePath(`/projects/${context.data.projectId}`);
 }
 
 export async function createLegacyCommentAction(formData: FormData) {

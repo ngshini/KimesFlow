@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, FolderKanban } from "lucide-react";
+import { MemberManagement } from "@/components/collaboration/member-management";
 import { ProjectCard } from "@/components/project/project-card";
 import { ProjectCreateForm } from "@/components/project/project-create-form";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { WorkspaceDeleteButton } from "@/components/workspace/workspace-delete-b
 import { WorkspaceEditForm } from "@/components/workspace/workspace-edit-form";
 import { routes } from "@/constants/routes";
 import { getWorkspaceProjects } from "@/lib/data/projects";
+import { getWorkspaceInvites, getWorkspaceMembers } from "@/lib/data/collaboration";
 import { getWorkspaceById } from "@/lib/data/workspaces";
 
 type WorkspaceDetailPageProps = {
@@ -16,8 +18,14 @@ type WorkspaceDetailPageProps = {
 
 export default async function WorkspaceDetailPage({ params }: WorkspaceDetailPageProps) {
   const { workspaceId } = await params;
-  const [workspace, projects] = await Promise.all([getWorkspaceById(workspaceId), getWorkspaceProjects(workspaceId)]);
+  const [workspace, projects, members, invites] = await Promise.all([
+    getWorkspaceById(workspaceId),
+    getWorkspaceProjects(workspaceId),
+    getWorkspaceMembers(workspaceId),
+    getWorkspaceInvites(workspaceId),
+  ]);
   const isOwner = workspace.role === "owner";
+  const canManageMembers = workspace.role === "owner" || workspace.role === "admin";
   const canCreateProject = workspace.role !== "viewer";
 
   return (
@@ -67,6 +75,15 @@ export default async function WorkspaceDetailPage({ params }: WorkspaceDetailPag
               </CardContent>
             </Card>
           ) : null}
+
+          <MemberManagement
+            canManage={canManageMembers}
+            invites={invites}
+            members={members}
+            scope="workspace"
+            title="Thành viên workspace"
+            workspaceId={workspace.id}
+          />
         </div>
 
         <div className="space-y-6">

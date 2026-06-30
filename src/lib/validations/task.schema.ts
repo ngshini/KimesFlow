@@ -4,7 +4,7 @@ import { PRIORITIES } from "@/constants/task-status";
 export const taskSchema = z.object({
   projectId: z.uuid(),
   statusId: z.uuid("Trạng thái không hợp lệ"),
-  title: z.string().min(2, "Tiêu đề task tối thiểu 2 ký tự"),
+  title: z.string().trim().min(1, "Tiêu đề task không được trống").max(200, "Tiêu đề task tối đa 200 ký tự"),
   description: z.string().max(2000).optional(),
   assigneeId: z.union([z.uuid(), z.literal("")]).optional(),
   startDate: z.union([z.iso.date(), z.literal("")]).optional(),

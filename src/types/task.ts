@@ -48,6 +48,7 @@ export type TaskComment = {
   taskId: string;
   content: string;
   createdAt: string;
+  canDelete?: boolean;
   author: {
     id: string;
     name: string;

@@ -1,6 +1,5 @@
 import { addDays, format, isBefore, isWithinInterval, parseISO, startOfToday } from "date-fns";
 import { getCurrentUserId, getUserWorkspaces } from "@/lib/data/workspaces";
-import { getUserProjects } from "@/lib/data/projects";
 import { createClient } from "@/lib/supabase/server";
 import type { TaskPriority } from "@/constants/task-status";
 
@@ -9,7 +8,6 @@ type DashboardTaskRow = {
   project_id: string;
   status_id: string;
   title: string;
-  description: string | null;
   assignee_id: string | null;
   due_date: string | null;
   priority: TaskPriority;
@@ -51,9 +49,23 @@ function mapDashboardTask(task: DashboardTaskRow, projectNameById: Map<string, s
 export async function getDashboardData() {
   const supabase = await createClient();
   const userId = await getCurrentUserId();
-  const [workspaces, projects] = await Promise.all([getUserWorkspaces(), getUserProjects()]);
+  const workspaces = await getUserWorkspaces();
+  const workspaceIds = workspaces.map((workspace) => workspace.id);
+
+  const { data: projects, error: projectError } =
+    workspaceIds.length > 0
+      ? await supabase
+          .from("projects")
+          .select("id, workspace_id, name, color, created_at")
+          .in("workspace_id", workspaceIds)
+          .order("created_at", { ascending: false })
+      : { data: [], error: null };
+
+  if (projectError) throw new Error(projectError.message);
+
   const projectIds = projects.map((project) => project.id);
   const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
+  const workspaceNameById = new Map(workspaces.map((workspace) => [workspace.id, workspace.name]));
 
   if (projectIds.length === 0) {
     return {
@@ -82,7 +94,7 @@ export async function getDashboardData() {
     supabase.from("task_statuses").select("id, project_id, name, slug, color").in("project_id", projectIds),
     supabase
       .from("tasks")
-      .select("id, project_id, status_id, title, description, assignee_id, due_date, priority, created_at, completed_at")
+      .select("id, project_id, status_id, title, assignee_id, due_date, priority, created_at, completed_at")
       .in("project_id", projectIds)
       .order("created_at", { ascending: false }),
   ]);
@@ -171,8 +183,8 @@ export async function getDashboardData() {
   const recentProjects = projects.slice(0, 6).map((project) => ({
     id: project.id,
     name: project.name,
-    workspaceName: project.workspaceName ?? "Không rõ workspace",
-    createdAt: format(parseISO(project.createdAt), "dd/MM/yyyy"),
+    workspaceName: workspaceNameById.get(project.workspace_id) ?? "Không rõ workspace",
+    createdAt: format(parseISO(project.created_at), "dd/MM/yyyy"),
     color: project.color ?? "#2563eb",
   }));
 

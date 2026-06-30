@@ -71,6 +71,7 @@ export async function getUserProjects() {
 
 export async function getProjectById(projectId: string) {
   const supabase = await createClient();
+  const userId = await getCurrentUserId();
   const workspaces = await getUserWorkspaces();
 
   const { data: project, error } = await supabase
@@ -84,7 +85,16 @@ export async function getProjectById(projectId: string) {
   const workspace = workspaces.find((item) => item.id === project.workspace_id);
   if (!workspace) notFound();
 
-  return mapProject(project, workspace.name, workspace.role === "owner" || workspace.role === "admin" ? "owner" : undefined);
+  const { data: projectMember } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const role = projectMember?.role ?? (workspace.role === "owner" || workspace.role === "admin" ? "admin" : workspace.role);
+
+  return mapProject(project, workspace.name, role);
 }
 
 export async function getWorkspaceProjects(workspaceId: string) {

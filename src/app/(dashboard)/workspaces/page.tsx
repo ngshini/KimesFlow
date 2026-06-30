@@ -1,6 +1,9 @@
+import Link from "next/link";
+import { Workflow } from "lucide-react";
 import { WorkspaceCard } from "@/components/workspace/workspace-card";
 import { WorkspaceCreateForm } from "@/components/workspace/workspace-create-form";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getUserWorkspaces } from "@/lib/data/workspaces";
 
 export default async function WorkspacesPage() {
@@ -8,11 +11,10 @@ export default async function WorkspacesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-950">Workspaces</h1>
-        <p className="mt-1 text-sm text-slate-500">Danh sách workspace mà bạn đang tham gia.</p>
-      </div>
-      <WorkspaceCreateForm />
+      <PageHeader description="Tổ chức project, thành viên và quyền truy cập theo từng không gian làm việc." title="Workspaces" />
+      <section id="create-workspace">
+        <WorkspaceCreateForm />
+      </section>
       {workspaces.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {workspaces.map((workspace) => (
@@ -20,11 +22,16 @@ export default async function WorkspacesPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent>
-            <p className="text-sm text-slate-500">Bạn chưa tham gia workspace nào. Hãy tạo workspace đầu tiên ở form phía trên.</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          action={
+            <Link className="text-sm font-medium text-blue-600 hover:text-blue-700" href="#create-workspace">
+              Điền form tạo workspace phía trên
+            </Link>
+          }
+          description="Bạn chưa tham gia workspace nào. Workspace là nơi gom project, member và task."
+          icon={Workflow}
+          title="Chưa có workspace"
+        />
       )}
     </div>
   );

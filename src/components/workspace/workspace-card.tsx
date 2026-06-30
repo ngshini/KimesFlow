@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Building2 } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Workspace } from "@/types/workspace";
@@ -11,7 +10,7 @@ type WorkspaceCardProps = {
 
 export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
   return (
-    <Card>
+    <Card className="transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
       <CardContent className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -26,11 +25,17 @@ export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
             <p className="mt-1 text-sm text-slate-500">{workspace.description}</p>
           </div>
           </div>
-          <Link className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-100" href={`/workspaces/${workspace.id}`}>
+          <Link className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-600" href={`/workspaces/${workspace.id}`}>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <p className="text-xs text-slate-400">/{workspace.slug}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          <span>/{workspace.slug}</span>
+          <span className="inline-flex items-center gap-1">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {new Date(workspace.createdAt).toLocaleDateString("vi-VN")}
+          </span>
+        </div>
       </CardContent>
     </Card>
   );
