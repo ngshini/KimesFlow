@@ -36,6 +36,17 @@ function getAuthErrorMessage(message: string) {
   return message || "Không thể xử lý yêu cầu. Vui lòng thử lại.";
 }
 
+function getRequestOrigin(headersList: Headers) {
+  const origin = headersList.get("origin");
+  if (origin) return origin;
+
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  if (!host) return "http://localhost:3000";
+
+  const protocol = headersList.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  return `${protocol}://${host}`;
+}
+
 export async function loginAction(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
@@ -88,10 +99,10 @@ export async function logoutAction() {
 
 export async function googleLoginAction(formData: FormData) {
   const headersList = await headers();
-  const origin = headersList.get("origin");
+  const origin = getRequestOrigin(headersList);
   const supabase = await createClient();
   const next = getSafeNextPath(formData.get("next"));
-  const redirectTo = origin ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : `/auth/callback?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
