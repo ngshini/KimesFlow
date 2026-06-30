@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Bot, CalendarDays, FolderKanban, LayoutDashboard, ListTodo, Settings, Workflow } from "lucide-react";
+import { CalendarDays, FolderKanban, LayoutDashboard, ListTodo, Workflow } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { routes } from "@/constants/routes";
@@ -13,9 +13,6 @@ const navItems = [
   { href: routes.projects, label: "Projects", icon: FolderKanban },
   { href: routes.tasks, label: "My Tasks", icon: ListTodo },
   { href: "/dashboard#calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/dashboard#notifications", label: "Notifications", icon: Bell },
-  { href: "/projects#ai", label: "AI Assistant", icon: Bot },
-  { href: "/dashboard#settings", label: "Settings", icon: Settings },
 ];
 
 function useCurrentHash() {

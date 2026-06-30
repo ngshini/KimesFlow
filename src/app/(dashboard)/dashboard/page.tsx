@@ -1,12 +1,13 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AlertTriangle, CheckCircle2, Clock, FolderKanban, ListTodo, Plus, UserPlus, Workflow } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FolderKanban, ListTodo, UserPlus, Workflow } from "lucide-react";
 import { CalendarList } from "@/components/dashboard/calendar-list";
 import { DashboardTaskList, RecentProjectsList } from "@/components/dashboard/dashboard-lists";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { QuickTaskModal } from "@/components/task/quick-task-modal";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
@@ -74,13 +75,8 @@ export default async function DashboardPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Theo dõi tiến độ, deadline và công việc của đội ngũ từ dữ liệu Supabase realtime.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/projects">
-              <Button className="bg-white text-blue-700 hover:bg-blue-50" type="button">
-                <Plus className="h-4 w-4" />
-                Tạo task
-              </Button>
-            </Link>
-            <Link href="/projects">
+            <QuickTaskModal triggerClassName="bg-white text-blue-700 hover:bg-blue-50" triggerLabel="Tạo task" />
+            <Link href="/projects#create-project">
               <Button className="border-white/20 bg-white/10 text-white hover:bg-white/15" type="button" variant="secondary">
                 <FolderKanban className="h-4 w-4" />
                 Tạo project

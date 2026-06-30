@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderPlus, LogOut, Search, Settings, User } from "lucide-react";
+import { FolderPlus, LogOut, Search } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export async function Topbar() {
       </form>
       <div className="ml-4 flex items-center gap-3">
         <QuickTaskModal />
-        <Link href="/projects" className="hidden md:block">
+        <Link href="/projects#create-project" className="hidden md:block">
           <Button type="button" variant="secondary">
             <FolderPlus className="h-4 w-4" />
             Tạo project
@@ -44,14 +44,6 @@ export async function Topbar() {
             <span className="hidden max-w-28 truncate text-sm font-medium text-slate-700 xl:block">{displayName}</span>
           </button>
           <div className="invisible absolute right-0 z-30 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
-            <Link className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" href="/dashboard#profile">
-              <User className="h-4 w-4" />
-              Profile
-            </Link>
-            <Link className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" href="/dashboard#settings">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
             <form action={logoutAction}>
               <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50" type="submit">
                 <LogOut className="h-4 w-4" />

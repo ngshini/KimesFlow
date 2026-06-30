@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { format, parseISO } from "date-fns";
 import { CalendarDays, GitFork, KanbanSquare, ListTodo, Settings, Users } from "lucide-react";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { MemberManagement } from "@/components/collaboration/member-management";
@@ -9,13 +10,57 @@ import { ProjectEditForm } from "@/components/project/project-edit-form";
 import { ProjectMindmap } from "@/components/project/project-mindmap";
 import { TaskCreateForm } from "@/components/task/task-create-form";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { getProjectInvites, getProjectMembers } from "@/lib/data/collaboration";
 import { getProjectAssignees, getProjectKanbanData, getProjectSubtasks } from "@/lib/data/tasks";
+import type { Task } from "@/types/task";
 
 type ProjectDetailPageProps = {
   params: Promise<{ projectId: string }>;
 };
+
+function ProjectCalendar({ tasks }: { tasks: Task[] }) {
+  const days = Array.from(
+    tasks
+      .filter((task) => task.dueDate)
+      .reduce<Map<string, Task[]>>((acc, task) => {
+        const key = String(task.dueDate);
+        acc.set(key, [...(acc.get(key) ?? []), task]);
+        return acc;
+      }, new Map<string, Task[]>()),
+  ).sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <Card className="scroll-mt-24" id="calendar">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-blue-600" />
+          <h2 className="text-base font-semibold text-slate-950">Calendar deadline</h2>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {days.length === 0 ? (
+          <p className="text-sm text-slate-500">Project này chưa có task nào có deadline.</p>
+        ) : (
+          <div className="space-y-4">
+            {days.map(([date, dayTasks]) => (
+              <div key={date} className="rounded-md border border-slate-200 p-3">
+                <p className="text-sm font-semibold text-slate-900">{format(parseISO(date), "dd/MM/yyyy")}</p>
+                <div className="mt-2 space-y-2">
+                  {dayTasks.map((task) => (
+                    <Link key={task.id} className="block text-sm text-blue-600 hover:text-blue-700" href={`/tasks/${task.id}`}>
+                      {task.title}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { projectId } = await params;
@@ -28,6 +73,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   ]);
   const canManageProject = project.role === "owner" || project.role === "admin";
   const canWriteProject = project.role !== "viewer";
+  const projectNavItems = [
+    { label: "Overview", href: "#overview", icon: ListTodo },
+    { label: "Kanban", href: "#kanban", icon: KanbanSquare },
+    { label: "Mindmap", href: "#mindmap", icon: GitFork },
+    { label: "Calendar", href: "#calendar", icon: CalendarDays },
+    { label: "Members", href: "#members", icon: Users },
+    ...(canManageProject ? [{ label: "Settings", href: "#settings", icon: Settings }] : []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -61,21 +114,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </div>
       </div>
       <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-        {[
-          ["Overview", "#overview", ListTodo],
-          ["Kanban", "#kanban", KanbanSquare],
-          ["Mindmap", "#mindmap", GitFork],
-          ["Calendar", "#calendar", CalendarDays],
-          ["Members", "#members", Users],
-          ["Settings", "#settings", Settings],
-        ].map(([label, href, Icon]) => (
-          <Link key={String(label)} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-700" href={String(href)}>
-            <Icon className="h-4 w-4" />
-            {String(label)}
+        {projectNavItems.map((item) => (
+          <Link key={item.href} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-700" href={item.href}>
+            <item.icon className="h-4 w-4" />
+            {item.label}
           </Link>
         ))}
       </nav>
-      <Card id="overview">
+      <Card className="scroll-mt-24" id="overview">
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs uppercase text-slate-400">Slug</p>
@@ -97,9 +143,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </section>
       ) : null}
       {canWriteProject ? <AiTaskGenerator projectId={project.id} statuses={statuses} /> : null}
-      {canManageProject ? <div id="settings"><ProjectEditForm project={project} /></div> : null}
+      {canManageProject ? (
+        <div className="scroll-mt-24" id="settings">
+          <ProjectEditForm project={project} />
+        </div>
+      ) : null}
       {canManageProject ? <WorkflowManager projectId={project.id} statuses={statuses} tasks={tasks} /> : null}
-      <div id="members">
+      <ProjectCalendar tasks={tasks} />
+      <div className="scroll-mt-24" id="members">
       <MemberManagement
         canManage={canManageProject}
         invites={projectInvites}
@@ -110,10 +161,10 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         workspaceId={project.workspaceId}
       />
       </div>
-      <div id="mindmap">
+      <div className="scroll-mt-24" id="mindmap">
         <ProjectMindmap project={project} subtasks={subtasks} tasks={tasks} />
       </div>
-      <div id="kanban">
+      <div className="scroll-mt-24" id="kanban">
       <KanbanBoard
         key={tasks.map((task) => `${task.id}:${task.statusId}:${task.position}`).join("|")}
         assignees={assignees}

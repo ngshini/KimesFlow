@@ -11,13 +11,19 @@ import { PRIORITIES, type TaskPriority } from "@/constants/task-status";
 import { parseQuickTaskInput } from "@/lib/tasks/quick-task";
 import type { QuickTaskProjectOption } from "@/lib/data/quick-task-options";
 
+type QuickTaskModalProps = {
+  triggerClassName?: string;
+  triggerLabel?: string;
+  triggerVariant?: "primary" | "secondary" | "ghost" | "danger";
+};
+
 function getProjectIdFromPath(pathname: string, projects: QuickTaskProjectOption[]) {
   const match = pathname.match(/^\/projects\/([^/]+)/);
   const projectId = match?.[1];
   return projectId && projects.some((project) => project.id === projectId) ? projectId : undefined;
 }
 
-export function QuickTaskModal() {
+export function QuickTaskModal({ triggerClassName, triggerLabel = "Tạo task nhanh", triggerVariant = "primary" }: QuickTaskModalProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [projects, setProjects] = useState<QuickTaskProjectOption[]>([]);
@@ -98,7 +104,9 @@ export function QuickTaskModal() {
   return (
     <>
       <Button
+        className={triggerClassName}
         type="button"
+        variant={triggerVariant}
         onClick={() => {
           setOpen(true);
           if (!optionsLoaded && !isOptionsPending) {
@@ -110,14 +118,16 @@ export function QuickTaskModal() {
                 setOptionsError(data.error ?? "Không thể tải dữ liệu tạo task nhanh.");
                 return;
               }
-              setProjects(data.projects ?? []);
+              const nextProjects = data.projects ?? [];
+              setProjects(nextProjects);
+              setProjectId((current) => current || getProjectIdFromPath(pathname, nextProjects) || (nextProjects.length === 1 ? (nextProjects[0]?.id ?? "") : ""));
               setOptionsLoaded(true);
             });
           }
         }}
       >
         <Plus className="h-4 w-4" />
-        <span className="hidden sm:inline">Tạo task nhanh</span>
+        <span className={triggerLabel === "Tạo task nhanh" ? "hidden sm:inline" : undefined}>{triggerLabel}</span>
       </Button>
       <Modal
         open={open}
