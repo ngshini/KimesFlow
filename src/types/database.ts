@@ -9,6 +9,8 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           avatar_url: string | null;
+          phone: string | null;
+          zalo_user_id: string | null;
           telegram_chat_id: string | null;
           created_at: string;
           updated_at: string;
@@ -18,6 +20,8 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          phone?: string | null;
+          zalo_user_id?: string | null;
           telegram_chat_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -26,6 +30,8 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           avatar_url?: string | null;
+          phone?: string | null;
+          zalo_user_id?: string | null;
           telegram_chat_id?: string | null;
           updated_at?: string;
         };
@@ -86,29 +92,44 @@ export type Database = {
         Row: {
           id: string;
           workspace_id: string;
+          owner_id: string | null;
+          created_by: string | null;
           name: string;
           slug: string;
           description: string | null;
           color: string | null;
+          start_date: string | null;
+          end_date: string | null;
+          status: "planned" | "active" | "paused" | "completed" | "archived";
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           workspace_id: string;
+          owner_id?: string | null;
+          created_by?: string | null;
           name: string;
           slug: string;
           description?: string | null;
           color?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          status?: "planned" | "active" | "paused" | "completed" | "archived";
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           workspace_id?: string;
+          owner_id?: string | null;
+          created_by?: string | null;
           name?: string;
           slug?: string;
           description?: string | null;
           color?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          status?: "planned" | "active" | "paused" | "completed" | "archived";
           updated_at?: string;
         };
         Relationships: [];
@@ -144,6 +165,7 @@ export type Database = {
           slug: string;
           color: string | null;
           position: number;
+          is_default: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -154,6 +176,7 @@ export type Database = {
           slug: string;
           color?: string | null;
           position?: number;
+          is_default?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -162,6 +185,7 @@ export type Database = {
           slug?: string;
           color?: string | null;
           position?: number;
+          is_default?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -176,7 +200,9 @@ export type Database = {
           assignee_id: string | null;
           reporter_id: string | null;
           created_by: string | null;
+          start_date: string | null;
           due_date: string | null;
+          completed_at: string | null;
           priority: "low" | "medium" | "high" | "urgent";
           position: number;
           created_at: string;
@@ -191,7 +217,9 @@ export type Database = {
           assignee_id?: string | null;
           reporter_id?: string | null;
           created_by?: string | null;
+          start_date?: string | null;
           due_date?: string | null;
+          completed_at?: string | null;
           priority?: "low" | "medium" | "high" | "urgent";
           position?: number;
           created_at?: string;
@@ -204,7 +232,9 @@ export type Database = {
           assignee_id?: string | null;
           reporter_id?: string | null;
           created_by?: string | null;
+          start_date?: string | null;
           due_date?: string | null;
+          completed_at?: string | null;
           priority?: "low" | "medium" | "high" | "urgent";
           position?: number;
           updated_at?: string;
@@ -234,6 +264,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      subtasks: {
+        Row: {
+          id: string;
+          task_id: string;
+          title: string;
+          description: string | null;
+          is_completed: boolean;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          title: string;
+          description?: string | null;
+          is_completed?: boolean;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          is_completed?: boolean;
+          position?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       attachments: {
         Row: {
           id: string;
@@ -241,8 +303,10 @@ export type Database = {
           comment_id: string | null;
           uploaded_by: string;
           file_url: string;
+          file_path: string | null;
           file_name: string;
           file_type: string | null;
+          mime_type: string | null;
           file_size: number | null;
           created_at: string;
         };
@@ -252,15 +316,19 @@ export type Database = {
           comment_id?: string | null;
           uploaded_by: string;
           file_url: string;
+          file_path?: string | null;
           file_name: string;
           file_type?: string | null;
+          mime_type?: string | null;
           file_size?: number | null;
           created_at?: string;
         };
         Update: {
           file_url?: string;
+          file_path?: string | null;
           file_name?: string;
           file_type?: string | null;
+          mime_type?: string | null;
           file_size?: number | null;
         };
         Relationships: [];
@@ -298,13 +366,17 @@ export type Database = {
           workspace_id: string | null;
           project_id: string | null;
           task_id: string | null;
+          type: string | null;
           title: string;
           body: string | null;
-          channel: "app" | "telegram";
+          message: string | null;
+          channel: "app" | "in_app" | "telegram" | "zalo";
           delivery_status: "pending" | "sent" | "failed";
+          status: "pending" | "sent" | "failed" | "read" | null;
           error_message: string | null;
           sent_at: string | null;
           is_read: boolean;
+          read_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -313,20 +385,26 @@ export type Database = {
           workspace_id?: string | null;
           project_id?: string | null;
           task_id?: string | null;
+          type?: string | null;
           title: string;
           body?: string | null;
-          channel?: "app" | "telegram";
+          message?: string | null;
+          channel?: "app" | "in_app" | "telegram" | "zalo";
           delivery_status?: "pending" | "sent" | "failed";
+          status?: "pending" | "sent" | "failed" | "read" | null;
           error_message?: string | null;
           sent_at?: string | null;
           is_read?: boolean;
+          read_at?: string | null;
           created_at?: string;
         };
         Update: {
           delivery_status?: "pending" | "sent" | "failed";
+          status?: "pending" | "sent" | "failed" | "read" | null;
           error_message?: string | null;
           sent_at?: string | null;
           is_read?: boolean;
+          read_at?: string | null;
         };
         Relationships: [];
       };

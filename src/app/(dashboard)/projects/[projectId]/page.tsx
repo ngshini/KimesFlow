@@ -1,9 +1,13 @@
 import { KanbanBoard } from "@/components/kanban/kanban-board";
+import { WorkflowManager } from "@/components/kanban/workflow-manager";
+import { AiTaskGenerator } from "@/components/project/ai-task-generator";
 import { ProjectDeleteButton } from "@/components/project/project-delete-button";
+import { ProjectEditForm } from "@/components/project/project-edit-form";
+import { ProjectMindmap } from "@/components/project/project-mindmap";
 import { TaskCreateForm } from "@/components/task/task-create-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { getProjectAssignees, getProjectKanbanData } from "@/lib/data/tasks";
+import { getProjectAssignees, getProjectKanbanData, getProjectSubtasks } from "@/lib/data/tasks";
 
 type ProjectDetailPageProps = {
   params: Promise<{ projectId: string }>;
@@ -11,7 +15,11 @@ type ProjectDetailPageProps = {
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { projectId } = await params;
-  const [{ project, statuses, tasks }, assignees] = await Promise.all([getProjectKanbanData(projectId), getProjectAssignees(projectId)]);
+  const [{ project, statuses, tasks }, assignees, subtasks] = await Promise.all([
+    getProjectKanbanData(projectId),
+    getProjectAssignees(projectId),
+    getProjectSubtasks(projectId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -43,7 +51,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </CardContent>
       </Card>
       <TaskCreateForm assignees={assignees} projectId={project.id} statuses={statuses} />
-      <KanbanBoard key={tasks.map((task) => `${task.id}:${task.statusId}:${task.position}`).join("|")} statuses={statuses} tasks={tasks} />
+      <AiTaskGenerator projectId={project.id} statuses={statuses} />
+      {project.role === "owner" ? <ProjectEditForm project={project} /> : null}
+      {project.role === "owner" ? <WorkflowManager projectId={project.id} statuses={statuses} tasks={tasks} /> : null}
+      <ProjectMindmap project={project} subtasks={subtasks} tasks={tasks} />
+      <KanbanBoard key={tasks.map((task) => `${task.id}:${task.statusId}:${task.position}`).join("|")} projectId={project.id} statuses={statuses} tasks={tasks} />
     </div>
   );
 }

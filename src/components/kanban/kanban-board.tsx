@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { moveTaskAction } from "@/actions/task.actions";
 import { KanbanColumn } from "@/components/kanban/kanban-column";
 import { TaskCard } from "@/components/task/task-card";
+import { createClient } from "@/lib/supabase/client";
 import type { Task, TaskStatus } from "@/types/task";
 
 type KanbanBoardProps = {
+  projectId: string;
   statuses: TaskStatus[];
   tasks: Task[];
 };
@@ -40,11 +43,25 @@ function getNextPosition(columnTasks: Task[], insertIndex: number) {
   return between > previous.position ? between : previous.position + 1;
 }
 
-export function KanbanBoard({ statuses, tasks }: KanbanBoardProps) {
+export function KanbanBoard({ projectId, statuses, tasks }: KanbanBoardProps) {
   const [items, setItems] = useState(tasks);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const router = useRouter();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`project-kanban-${projectId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` }, () => router.refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_statuses", filter: `project_id=eq.${projectId}` }, () => router.refresh())
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [projectId, router]);
 
   const grouped = useMemo(() => {
     return statuses.reduce<Record<string, Task[]>>(

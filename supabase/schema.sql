@@ -15,6 +15,8 @@ create table public.profiles (
   email text,
   full_name text,
   avatar_url text,
+  phone text,
+  zalo_user_id text,
   telegram_chat_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -73,10 +75,15 @@ create table public.workspace_members (
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  owner_id uuid references public.profiles(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
   name text not null,
   slug text not null,
   description text,
   color text,
+  start_date date,
+  end_date date,
+  status text not null default 'active' check (status in ('planned', 'active', 'paused', 'completed', 'archived')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (workspace_id, slug)
@@ -99,6 +106,7 @@ create table public.task_statuses (
   slug text not null,
   color text,
   position integer not null default 0,
+  is_default boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (project_id, slug)
@@ -113,7 +121,9 @@ create table public.tasks (
   assignee_id uuid references public.profiles(id) on delete set null,
   reporter_id uuid references public.profiles(id) on delete set null,
   created_by uuid references public.profiles(id) on delete set null,
+  start_date date,
   due_date date,
+  completed_at timestamptz,
   priority text not null default 'medium' check (priority in ('low', 'medium', 'high', 'urgent')),
   position integer not null default 0,
   created_at timestamptz not null default now(),
@@ -124,8 +134,10 @@ create table public.subtasks (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.tasks(id) on delete cascade,
   title text not null,
+  description text,
   is_completed boolean not null default false,
   position integer not null default 0,
+  created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -145,8 +157,10 @@ create table public.attachments (
   comment_id uuid references public.comments(id) on delete cascade,
   uploaded_by uuid not null references public.profiles(id) on delete cascade,
   file_url text not null,
+  file_path text,
   file_name text not null,
   file_type text,
+  mime_type text,
   file_size bigint,
   created_at timestamptz not null default now(),
   constraint attachments_owner_check check (task_id is not null or comment_id is not null)
@@ -171,19 +185,27 @@ create table public.notifications (
   task_id uuid references public.tasks(id) on delete cascade,
   title text not null,
   body text,
-  channel text not null default 'app' check (channel in ('app', 'telegram')),
+  type text,
+  message text,
+  channel text not null default 'in_app' check (channel in ('app', 'in_app', 'telegram', 'zalo')),
   delivery_status text not null default 'pending' check (delivery_status in ('pending', 'sent', 'failed')),
+  status text check (status is null or status in ('pending', 'sent', 'failed', 'read')),
   error_message text,
   sent_at timestamptz,
   is_read boolean not null default false,
+  read_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 create index idx_workspaces_owner_id on public.workspaces(owner_id);
 create index idx_profiles_email on public.profiles(email);
+create index idx_profiles_zalo_user_id on public.profiles(zalo_user_id);
 create index idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
 create index idx_workspace_members_user_id on public.workspace_members(user_id);
 create index idx_projects_workspace_id on public.projects(workspace_id);
+create index idx_projects_owner_id on public.projects(owner_id);
+create index idx_projects_created_by on public.projects(created_by);
+create index idx_projects_status on public.projects(status);
 create index idx_project_members_project_id on public.project_members(project_id);
 create index idx_project_members_user_id on public.project_members(user_id);
 create index idx_task_statuses_project_id on public.task_statuses(project_id);
@@ -191,7 +213,11 @@ create index idx_tasks_project_id on public.tasks(project_id);
 create index idx_tasks_status_id on public.tasks(status_id);
 create index idx_tasks_assignee_id on public.tasks(assignee_id);
 create index idx_tasks_created_by on public.tasks(created_by);
+create index idx_tasks_due_date on public.tasks(due_date);
+create index idx_tasks_start_date on public.tasks(start_date);
+create index idx_tasks_completed_at on public.tasks(completed_at);
 create index idx_subtasks_task_id on public.subtasks(task_id);
+create index idx_subtasks_created_by on public.subtasks(created_by);
 create index idx_comments_task_id on public.comments(task_id);
 create index idx_comments_user_id on public.comments(user_id);
 create index idx_attachments_task_id on public.attachments(task_id);
@@ -200,6 +226,9 @@ create index idx_activity_logs_workspace_id on public.activity_logs(workspace_id
 create index idx_activity_logs_project_id on public.activity_logs(project_id);
 create index idx_activity_logs_task_id on public.activity_logs(task_id);
 create index idx_notifications_user_id on public.notifications(user_id);
+create index idx_notifications_channel on public.notifications(channel);
+create index idx_notifications_status on public.notifications(status);
+create index idx_notifications_read_at on public.notifications(read_at);
 
 create trigger set_profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
 create trigger set_workspaces_updated_at before update on public.workspaces for each row execute function public.set_updated_at();
@@ -335,6 +364,10 @@ for select using (
 create policy "Workspace members can create projects" on public.projects
 for insert with check (public.can_write_workspace(projects.workspace_id));
 
+create policy "Workspace admins can update projects" on public.projects
+for update using (public.can_manage_workspace(projects.workspace_id))
+with check (public.can_manage_workspace(projects.workspace_id));
+
 create policy "Workspace admins can delete projects" on public.projects
 for delete using (public.can_manage_workspace(projects.workspace_id));
 
@@ -365,6 +398,34 @@ for insert with check (
     select 1 from public.projects p
     where p.id = task_statuses.project_id
       and public.can_write_workspace(p.workspace_id)
+  )
+);
+
+create policy "Workspace members can update statuses" on public.task_statuses
+for update using (
+  exists (
+    select 1 from public.projects p
+    where p.id = task_statuses.project_id
+      and public.can_manage_workspace(p.workspace_id)
+  )
+) with check (
+  exists (
+    select 1 from public.projects p
+    where p.id = task_statuses.project_id
+      and public.can_manage_workspace(p.workspace_id)
+  )
+);
+
+create policy "Workspace members can delete empty statuses" on public.task_statuses
+for delete using (
+  exists (
+    select 1 from public.projects p
+    where p.id = task_statuses.project_id
+      and public.can_manage_workspace(p.workspace_id)
+  )
+  and not exists (
+    select 1 from public.tasks t
+    where t.status_id = task_statuses.id
   )
 );
 
@@ -417,6 +478,44 @@ for select using (
     select 1 from public.tasks t
     join public.projects p on p.id = t.project_id
     where t.id = subtasks.task_id and public.is_workspace_member(p.workspace_id)
+  )
+);
+
+create policy "Workspace members can create subtasks" on public.subtasks
+for insert with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.tasks t
+    join public.projects p on p.id = t.project_id
+    where t.id = subtasks.task_id
+      and public.can_write_workspace(p.workspace_id)
+  )
+);
+
+create policy "Workspace members can update subtasks" on public.subtasks
+for update using (
+  exists (
+    select 1 from public.tasks t
+    join public.projects p on p.id = t.project_id
+    where t.id = subtasks.task_id
+      and public.can_write_workspace(p.workspace_id)
+  )
+) with check (
+  exists (
+    select 1 from public.tasks t
+    join public.projects p on p.id = t.project_id
+    where t.id = subtasks.task_id
+      and public.can_write_workspace(p.workspace_id)
+  )
+);
+
+create policy "Workspace members can delete subtasks" on public.subtasks
+for delete using (
+  exists (
+    select 1 from public.tasks t
+    join public.projects p on p.id = t.project_id
+    where t.id = subtasks.task_id
+      and public.can_write_workspace(p.workspace_id)
   )
 );
 

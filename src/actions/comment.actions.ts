@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recordActivity } from "@/lib/activity";
 import { getTaskAccessContext } from "@/lib/data/task-access";
+import { createInAppNotification } from "@/lib/notifications/in-app";
 import { createClient } from "@/lib/supabase/server";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const BUCKET = "task-attachments";
 
 const commentSchema = z.object({
   taskId: z.uuid(),
@@ -15,6 +19,10 @@ export type CommentActionState = {
   error?: string;
   success?: string;
 };
+
+function sanitizeFileName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+}
 
 export async function createCommentAction(_prevState: CommentActionState, formData: FormData): Promise<CommentActionState> {
   const parsed = commentSchema.safeParse(Object.fromEntries(formData));
@@ -30,13 +38,43 @@ export async function createCommentAction(_prevState: CommentActionState, formDa
   const context = await getTaskAccessContext(parsed.data.taskId);
   if (context.error || !context.data) return { error: context.error ?? "Bạn không có quyền truy cập task này." };
 
-  const { error } = await supabase.from("comments").insert({
-    task_id: parsed.data.taskId,
-    user_id: user.id,
-    content: parsed.data.content,
-  });
+  const { data: comment, error } = await supabase
+    .from("comments")
+    .insert({
+      task_id: parsed.data.taskId,
+      user_id: user.id,
+      content: parsed.data.content,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0 && comment) {
+    if (file.size > MAX_FILE_SIZE) return { error: "Comment đã tạo nhưng file vượt quá 10MB nên chưa được upload." };
+
+    const safeName = sanitizeFileName(file.name);
+    const path = `${user.id}/${parsed.data.taskId}/comments/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+
+    if (!uploadError) {
+      await supabase.from("attachments").insert({
+        task_id: parsed.data.taskId,
+        comment_id: comment.id,
+        uploaded_by: user.id,
+        file_url: path,
+        file_path: path,
+        file_name: file.name,
+        file_type: file.type || "application/octet-stream",
+        mime_type: file.type || "application/octet-stream",
+        file_size: file.size,
+      });
+    }
+  }
 
   await recordActivity(supabase, {
     workspaceId: context.data.workspaceId,
@@ -45,6 +83,16 @@ export async function createCommentAction(_prevState: CommentActionState, formDa
     userId: user.id,
     action: "comment.created",
     metadata: { taskTitle: context.data.taskTitle },
+  });
+
+  await createInAppNotification(supabase, {
+    workspaceId: context.data.workspaceId,
+    projectId: context.data.projectId,
+    taskId: parsed.data.taskId,
+    userId: user.id,
+    type: "comment.created",
+    title: "Comment mới đã được thêm",
+    message: parsed.data.content,
   });
 
   revalidatePath(`/tasks/${parsed.data.taskId}`);

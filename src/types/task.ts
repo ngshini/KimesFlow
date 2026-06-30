@@ -7,6 +7,7 @@ export type TaskStatus = {
   slug: string;
   color?: string | null;
   position: number;
+  isDefault?: boolean;
 };
 
 export type Task = {
@@ -20,11 +21,26 @@ export type Task = {
     name: string;
     avatarUrl?: string | null;
   } | null;
+  startDate?: string | null;
   dueDate?: string | null;
+  completedAt?: string | null;
   priority: TaskPriority;
   position: number;
   commentCount: number;
   attachmentCount: number;
+  subtaskCount?: number;
+  completedSubtaskCount?: number;
+};
+
+export type Subtask = {
+  id: string;
+  taskId: string;
+  title: string;
+  description?: string | null;
+  isCompleted: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type TaskComment = {

@@ -25,8 +25,11 @@ export async function createTelegramNotification(supabase: SupabaseClient<Databa
     task_id: input.taskId,
     title: input.title,
     body: input.body,
+    type: "telegram.task_notification",
+    message: input.body,
     channel: "telegram",
     delivery_status: sendResult.ok ? "sent" : "failed",
+    status: sendResult.ok ? "sent" : "failed",
     error_message: sendResult.ok ? null : sendResult.error,
     sent_at: sendResult.ok ? new Date().toISOString() : null,
   });

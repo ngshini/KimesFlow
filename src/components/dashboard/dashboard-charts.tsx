@@ -18,6 +18,8 @@ type PriorityDatum = {
 type DashboardChartsProps = {
   tasksByStatus: StatusDatum[];
   tasksByPriority: PriorityDatum[];
+  tasksByAssignee: { name: string; tasks: number }[];
+  tasksByDeadline: { name: string; tasks: number }[];
 };
 
 const priorityColors: Record<string, string> = {
@@ -27,7 +29,7 @@ const priorityColors: Record<string, string> = {
   urgent: "#e11d48",
 };
 
-export function DashboardCharts({ tasksByStatus, tasksByPriority }: DashboardChartsProps) {
+export function DashboardCharts({ tasksByStatus, tasksByPriority, tasksByAssignee, tasksByDeadline }: DashboardChartsProps) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <Card>
@@ -72,6 +74,46 @@ export function DashboardCharts({ tasksByStatus, tasksByPriority }: DashboardCha
             </ResponsiveContainer>
           ) : (
             <p className="text-sm text-slate-500">Chưa có task để hiển thị biểu đồ.</p>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-slate-950">Task theo người phụ trách</h2>
+        </CardHeader>
+        <CardContent className="h-80">
+          {tasksByAssignee.some((item) => item.tasks > 0) ? (
+            <ResponsiveContainer height="100%" width="100%">
+              <BarChart data={tasksByAssignee} margin={{ left: -20, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} />
+                <YAxis allowDecimals={false} tickLine={false} />
+                <Tooltip />
+                <Bar dataKey="tasks" fill="#0f766e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-slate-500">Chưa có task được gán người phụ trách.</p>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-slate-950">Task theo deadline</h2>
+        </CardHeader>
+        <CardContent className="h-80">
+          {tasksByDeadline.some((item) => item.tasks > 0) ? (
+            <ResponsiveContainer height="100%" width="100%">
+              <BarChart data={tasksByDeadline} margin={{ left: -20, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} />
+                <YAxis allowDecimals={false} tickLine={false} />
+                <Tooltip />
+                <Bar dataKey="tasks" fill="#7c3aed" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-slate-500">Chưa có deadline để hiển thị.</p>
           )}
         </CardContent>
       </Card>

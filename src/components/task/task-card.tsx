@@ -47,6 +47,11 @@ export function TaskCard({ task }: TaskCardProps) {
           <Paperclip className="h-3.5 w-3.5" />
           {task.attachmentCount}
         </span>
+        {(task.subtaskCount ?? 0) > 0 ? (
+          <span>
+            Subtask {task.completedSubtaskCount}/{task.subtaskCount}
+          </span>
+        ) : null}
       </div>
     </article>
   );

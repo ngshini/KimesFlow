@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { BarChart3, FolderKanban, LayoutDashboard, Settings, Workflow } from "lucide-react";
+import { BarChart3, FolderKanban, LayoutDashboard, ListTodo, Settings, Workflow } from "lucide-react";
 import { routes } from "@/constants/routes";
 
 const navItems = [
   { href: routes.dashboard, label: "Dashboard", icon: LayoutDashboard },
   { href: routes.workspaces, label: "Workspaces", icon: Workflow },
   { href: routes.projects, label: "Projects", icon: FolderKanban },
+  { href: routes.tasks, label: "Tasks", icon: ListTodo },
   { href: "/dashboard#reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard#settings", label: "Settings", icon: Settings },
 ];

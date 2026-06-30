@@ -53,8 +53,10 @@ export async function uploadTaskAttachmentAction(_prevState: AttachmentActionSta
     task_id: parsed.data.taskId,
     uploaded_by: user.id,
     file_url: path,
+    file_path: path,
     file_name: file.name,
     file_type: file.type || "application/octet-stream",
+    mime_type: file.type || "application/octet-stream",
     file_size: file.size,
   });
 

@@ -1,4 +1,4 @@
-import { format, isBefore, parseISO, startOfToday } from "date-fns";
+import { addDays, format, isBefore, isWithinInterval, parseISO, startOfToday } from "date-fns";
 import { getCurrentUserId, getUserWorkspaces } from "@/lib/data/workspaces";
 import { getUserProjects } from "@/lib/data/projects";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +14,7 @@ type DashboardTaskRow = {
   due_date: string | null;
   priority: TaskPriority;
   created_at: string;
+  completed_at?: string | null;
 };
 
 type DashboardStatusRow = {
@@ -63,12 +64,17 @@ export async function getDashboardData() {
         doneTaskCount: 0,
         inProgressTaskCount: 0,
         overdueTaskCount: 0,
+        dueSoonTaskCount: 0,
+        completionRate: 0,
       },
       tasksByStatus: [],
       tasksByPriority: [],
+      tasksByAssignee: [],
+      tasksByDeadline: [],
       nearDeadlineTasks: [],
       assignedTasks: [],
       recentProjects: [],
+      calendarDays: [],
     };
   }
 
@@ -76,7 +82,7 @@ export async function getDashboardData() {
     supabase.from("task_statuses").select("id, project_id, name, slug, color").in("project_id", projectIds),
     supabase
       .from("tasks")
-      .select("id, project_id, status_id, title, description, assignee_id, due_date, priority, created_at")
+      .select("id, project_id, status_id, title, description, assignee_id, due_date, priority, created_at, completed_at")
       .in("project_id", projectIds)
       .order("created_at", { ascending: false }),
   ]);
@@ -88,6 +94,7 @@ export async function getDashboardData() {
   const statusSlugById = new Map(statuses.map((status: DashboardStatusRow) => [status.id, status.slug]));
   const taskRows = tasks as DashboardTaskRow[];
   const today = startOfToday();
+  const nextWeek = addDays(today, 7);
 
   const doneTaskCount = taskRows.filter((task) => statusSlugById.get(task.status_id) === "done").length;
   const inProgressTaskCount = taskRows.filter((task) => statusSlugById.get(task.status_id) === "in_progress").length;
@@ -96,6 +103,11 @@ export async function getDashboardData() {
     if (statusSlugById.get(task.status_id) === "done") return false;
     return isBefore(parseISO(task.due_date), today);
   }).length;
+  const dueSoonTaskCount = taskRows.filter((task) => {
+    if (!task.due_date || statusSlugById.get(task.status_id) === "done") return false;
+    return isWithinInterval(parseISO(task.due_date), { start: today, end: nextWeek });
+  }).length;
+  const completionRate = taskRows.length > 0 ? Math.round((doneTaskCount / taskRows.length) * 100) : 0;
 
   const statusGroups = new Map<string, { name: string; tasks: number; fill: string }>();
   statuses.forEach((status: DashboardStatusRow) => {
@@ -123,6 +135,28 @@ export async function getDashboardData() {
     tasks: taskRows.filter((task) => task.priority === priority).length,
   }));
 
+  const assigneeIds = [...new Set(taskRows.map((task) => task.assignee_id).filter((id): id is string => Boolean(id)))];
+  const { data: assignees } =
+    assigneeIds.length > 0 ? await supabase.from("profiles").select("id, full_name, email").in("id", assigneeIds) : { data: [] };
+  const assigneeNameById = new Map((assignees ?? []).map((profile) => [profile.id, profile.full_name ?? profile.email ?? "Người dùng"]));
+  const tasksByAssignee = assigneeIds.map((assigneeId) => ({
+    name: assigneeNameById.get(assigneeId) ?? "Người dùng",
+    tasks: taskRows.filter((task) => task.assignee_id === assigneeId).length,
+  }));
+
+  const tasksByDeadline = Array.from(
+    taskRows
+      .filter((task) => task.due_date)
+      .reduce<Map<string, number>>((acc, task) => {
+        const key = String(task.due_date);
+        acc.set(key, (acc.get(key) ?? 0) + 1);
+        return acc;
+      }, new Map<string, number>()),
+  )
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, 10)
+    .map(([date, taskCount]) => ({ name: format(parseISO(date), "dd/MM"), tasks: taskCount }));
+
   const nearDeadlineTasks = taskRows
     .filter((task) => task.due_date && statusSlugById.get(task.status_id) !== "done")
     .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))
@@ -142,6 +176,19 @@ export async function getDashboardData() {
     color: project.color ?? "#2563eb",
   }));
 
+  const calendarDays = Array.from(
+    taskRows
+      .filter((task) => task.due_date)
+      .reduce<Map<string, ReturnType<typeof mapDashboardTask>[]>>((acc, task) => {
+        const key = String(task.due_date);
+        acc.set(key, [...(acc.get(key) ?? []), mapDashboardTask(task, projectNameById, statusNameById)]);
+        return acc;
+      }, new Map<string, ReturnType<typeof mapDashboardTask>[]>()),
+  )
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, 14)
+    .map(([date, dayTasks]) => ({ date, label: format(parseISO(date), "dd/MM/yyyy"), tasks: dayTasks }));
+
   return {
     stats: {
       workspaceCount: workspaces.length,
@@ -150,12 +197,17 @@ export async function getDashboardData() {
       doneTaskCount,
       inProgressTaskCount,
       overdueTaskCount,
+      dueSoonTaskCount,
+      completionRate,
     },
     tasksByStatus: statusCounts,
     tasksByPriority: priorityCounts,
+    tasksByAssignee,
+    tasksByDeadline,
     nearDeadlineTasks,
     assignedTasks,
     recentProjects,
+    calendarDays,
   };
 }
 

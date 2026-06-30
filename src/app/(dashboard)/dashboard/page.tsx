@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, FolderKanban, ListTodo, Workflow } from "lucide-react";
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
+import { CalendarList } from "@/components/dashboard/calendar-list";
 import { DashboardTaskList, RecentProjectsList } from "@/components/dashboard/dashboard-lists";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -65,12 +66,20 @@ export default async function DashboardPage() {
         <StatCard icon={CheckCircle2} label="Task hoàn thành" tone="bg-emerald-50 text-emerald-600" value={String(data.stats.doneTaskCount)} />
         <StatCard icon={Clock} label="Task đang làm" tone="bg-amber-50 text-amber-600" value={String(data.stats.inProgressTaskCount)} />
         <StatCard icon={AlertTriangle} label="Task quá hạn" tone="bg-rose-50 text-rose-600" value={String(data.stats.overdueTaskCount)} />
+        <StatCard icon={Clock} label="Đến hạn 7 ngày" tone="bg-violet-50 text-violet-600" value={String(data.stats.dueSoonTaskCount)} />
+        <StatCard icon={CheckCircle2} label="Tỷ lệ hoàn thành" tone="bg-teal-50 text-teal-600" value={`${data.stats.completionRate}%`} />
       </div>
-      <DashboardCharts tasksByPriority={data.tasksByPriority} tasksByStatus={data.tasksByStatus} />
+      <DashboardCharts
+        tasksByAssignee={data.tasksByAssignee}
+        tasksByDeadline={data.tasksByDeadline}
+        tasksByPriority={data.tasksByPriority}
+        tasksByStatus={data.tasksByStatus}
+      />
       <div className="grid gap-4 xl:grid-cols-2">
         <DashboardTaskList emptyLabel="Không có task nào gần deadline." tasks={data.nearDeadlineTasks} title="Task gần deadline" />
         <DashboardTaskList emptyLabel="Bạn chưa được giao task nào." tasks={data.assignedTasks} title="Task được giao cho bạn" />
       </div>
+      <CalendarList days={data.calendarDays} />
       <RecentProjectsList projects={data.recentProjects} />
     </div>
   );

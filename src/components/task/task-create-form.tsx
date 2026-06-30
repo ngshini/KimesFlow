@@ -40,6 +40,7 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
       title: "",
       description: "",
       assigneeId: "",
+      startDate: "",
       dueDate: "",
       priority: "medium",
     },
@@ -53,6 +54,7 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
         title: "",
         description: "",
         assigneeId: "",
+        startDate: "",
         dueDate: "",
         priority: "medium",
       });
@@ -78,6 +80,7 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
             formData.set("title", values.title);
             formData.set("description", values.description ?? "");
             formData.set("assigneeId", values.assigneeId ?? "");
+            formData.set("startDate", values.startDate ?? "");
             formData.set("dueDate", values.dueDate ?? "");
             formData.set("priority", values.priority);
 
@@ -113,8 +116,9 @@ export function TaskCreateForm({ projectId, statuses, assignees }: TaskCreateFor
           <Button disabled={isPending || statuses.length === 0} type="submit">
             {isPending ? "Đang tạo..." : "Tạo"}
           </Button>
+          <Input className="lg:col-span-2" type="date" {...register("startDate")} />
           <Input className="lg:col-span-2" type="date" {...register("dueDate")} />
-          <div className="lg:col-span-3" />
+          <div className="lg:col-span-1" />
           <div className="space-y-1.5 lg:col-span-5">
             <Textarea placeholder="Mô tả task" {...register("description")} />
             {errors.description?.message ? <p className="text-xs text-rose-600">{errors.description.message}</p> : null}

@@ -35,6 +35,7 @@ export function TaskEditForm({ task, assignees }: TaskEditFormProps) {
       title: task.title,
       description: task.description ?? "",
       assigneeId: task.assignee?.id ?? "",
+      startDate: task.startDate ?? "",
       dueDate: task.dueDate ?? "",
       priority: task.priority,
     },
@@ -52,6 +53,7 @@ export function TaskEditForm({ task, assignees }: TaskEditFormProps) {
         formData.set("title", values.title);
         formData.set("description", values.description ?? "");
         formData.set("assigneeId", values.assigneeId ?? "");
+        formData.set("startDate", values.startDate ?? "");
         formData.set("dueDate", values.dueDate ?? "");
         formData.set("priority", values.priority);
 
@@ -63,7 +65,7 @@ export function TaskEditForm({ task, assignees }: TaskEditFormProps) {
         {errors.title?.message ? <p className="text-xs text-rose-600">{errors.title.message}</p> : null}
       </div>
       <Textarea placeholder="Mô tả task" {...register("description")} />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" {...register("assigneeId")}>
           <option value="">Chưa gán</option>
           {assignees.map((assignee) => (
@@ -72,6 +74,7 @@ export function TaskEditForm({ task, assignees }: TaskEditFormProps) {
             </option>
           ))}
         </select>
+        <Input type="date" {...register("startDate")} />
         <Input type="date" {...register("dueDate")} />
         <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" {...register("priority")}>
           {PRIORITIES.map((priority) => (

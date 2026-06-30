@@ -31,6 +31,9 @@ export function ProjectCreateForm({ workspaces }: ProjectCreateFormProps) {
       slug: "",
       description: "",
       color: "#2563eb",
+      startDate: "",
+      endDate: "",
+      status: "active",
     },
   });
 
@@ -42,6 +45,9 @@ export function ProjectCreateForm({ workspaces }: ProjectCreateFormProps) {
         slug: "",
         description: "",
         color: "#2563eb",
+        startDate: "",
+        endDate: "",
+        status: "active",
       });
     }
   }, [reset, state.success, workspaces]);
@@ -66,6 +72,9 @@ export function ProjectCreateForm({ workspaces }: ProjectCreateFormProps) {
             formData.set("slug", values.slug);
             formData.set("description", values.description ?? "");
             formData.set("color", values.color ?? "");
+            formData.set("startDate", values.startDate ?? "");
+            formData.set("endDate", values.endDate ?? "");
+            formData.set("status", values.status ?? "active");
 
             startTransition(() => formAction(formData));
           })}
@@ -99,6 +108,16 @@ export function ProjectCreateForm({ workspaces }: ProjectCreateFormProps) {
             <Input disabled={!hasWorkspaces} placeholder="slug-project" {...register("slug")} />
             {errors.slug?.message ? <p className="text-xs text-rose-600">{errors.slug.message}</p> : null}
           </div>
+          <Input disabled={!hasWorkspaces} type="date" {...register("startDate")} />
+          <Input disabled={!hasWorkspaces} type="date" {...register("endDate")} />
+          <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" disabled={!hasWorkspaces} {...register("status")}>
+            <option value="planned">Lên kế hoạch</option>
+            <option value="active">Đang chạy</option>
+            <option value="paused">Tạm dừng</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="archived">Lưu trữ</option>
+          </select>
+          <div />
           <div className="space-y-1.5 lg:col-span-4">
             <Textarea disabled={!hasWorkspaces} placeholder="Mô tả project" {...register("description")} />
             {errors.description?.message ? <p className="text-xs text-rose-600">{errors.description.message}</p> : null}

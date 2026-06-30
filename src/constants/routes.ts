@@ -5,4 +5,5 @@ export const routes = {
   dashboard: "/dashboard",
   workspaces: "/workspaces",
   projects: "/projects",
+  tasks: "/tasks",
 } as const;

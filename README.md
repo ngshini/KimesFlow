@@ -34,6 +34,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_CHAT_ID=optional-default-chat-id
 TELEGRAM_REMINDER_SECRET=optional-secret-for-reminder-route
+ZALO_ACCESS_TOKEN=optional-zalo-access-token
+ZALO_OA_ID=optional-zalo-oa-id
+ZALO_TEMPLATE_ID=optional-zalo-zns-template-id
+GEMINI_API_KEY=optional-gemini-api-key
 ```
 
 Restart `npm run dev` after changing `.env.local`; Next.js only reads these values when the dev server starts.
@@ -86,7 +90,12 @@ For an existing database, run this incremental hardening migration after the ori
 
 ```text
 supabase/20260629_core_app_hardening.sql
+supabase/20260630_complete_coogo_like_features.sql
 ```
+
+The Storage bucket is created by `schema.sql` as a private bucket named `task-attachments`. If you manage buckets manually, create `task-attachments` and keep it private; the app uses signed URLs for downloads.
+
+Enable Supabase Realtime for `tasks`, `task_statuses`, `comments`, `subtasks`, and `attachments` if you want live refresh. Without Realtime, normal reload/server revalidation still shows the latest data.
 
 ## Authentication
 
@@ -104,6 +113,7 @@ supabase/20260629_core_app_hardening.sql
 - `/workspaces`
 - `/projects`
 - `/projects/[projectId]`
+- `/tasks`
 - `/tasks/[taskId]`
 
 ## Verification

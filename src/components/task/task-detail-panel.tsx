@@ -8,8 +8,11 @@ import { AttachmentList } from "@/components/task/attachment-list";
 import { AttachmentUploadForm } from "@/components/task/attachment-upload-form";
 import { CommentForm } from "@/components/task/comment-form";
 import { CommentList } from "@/components/task/comment-list";
+import { SubtaskForm } from "@/components/task/subtask-form";
+import { SubtaskList } from "@/components/task/subtask-list";
 import { TaskEditForm } from "@/components/task/task-edit-form";
-import type { Task, TaskAttachment, TaskComment } from "@/types/task";
+import { TaskRealtimeRefresh } from "@/components/task/task-realtime-refresh";
+import type { Subtask, Task, TaskAttachment, TaskComment } from "@/types/task";
 
 type TaskDetailPanelProps = {
   task: Task;
@@ -19,11 +22,13 @@ type TaskDetailPanelProps = {
   }[];
   comments: TaskComment[];
   attachments: TaskAttachment[];
+  subtasks: Subtask[];
 };
 
-export function TaskDetailPanel({ task, assignees, comments, attachments }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, assignees, comments, attachments, subtasks }: TaskDetailPanelProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <TaskRealtimeRefresh taskId={task.id} />
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
@@ -36,6 +41,15 @@ export function TaskDetailPanel({ task, assignees, comments, attachments }: Task
             <h2 className="text-sm font-semibold text-slate-900">Chỉnh sửa task</h2>
             <div className="mt-4">
               <TaskEditForm assignees={assignees} task={task} />
+            </div>
+          </section>
+          <section className="rounded-lg border border-slate-200 p-5">
+            <h2 className="text-sm font-semibold text-slate-900">Subtask</h2>
+            <div className="mt-4">
+              <SubtaskForm taskId={task.id} />
+            </div>
+            <div className="mt-5">
+              <SubtaskList subtasks={subtasks} />
             </div>
           </section>
           <section className="rounded-lg border border-dashed border-slate-300 p-5">

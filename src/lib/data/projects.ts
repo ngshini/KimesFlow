@@ -6,10 +6,15 @@ import type { Project, ProjectRole } from "@/types/project";
 type ProjectRow = {
   id: string;
   workspace_id: string;
+  owner_id: string | null;
+  created_by: string | null;
   name: string;
   slug: string;
   description: string | null;
   color: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: "planned" | "active" | "paused" | "completed" | "archived";
   created_at: string;
   updated_at: string;
 };
@@ -19,10 +24,15 @@ function mapProject(row: ProjectRow, workspaceName?: string, role?: ProjectRole)
     id: row.id,
     workspaceId: row.workspace_id,
     workspaceName,
+    ownerId: row.owner_id,
+    createdBy: row.created_by,
     name: row.name,
     slug: row.slug,
     description: row.description,
     color: row.color,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     role,
@@ -39,7 +49,7 @@ export async function getUserProjects() {
 
   const { data: projects, error } = await supabase
     .from("projects")
-    .select("id, workspace_id, name, slug, description, color, created_at, updated_at")
+    .select("id, workspace_id, owner_id, created_by, name, slug, description, color, start_date, end_date, status, created_at, updated_at")
     .in("workspace_id", workspaceIds)
     .order("created_at", { ascending: false });
 
@@ -65,7 +75,7 @@ export async function getProjectById(projectId: string) {
 
   const { data: project, error } = await supabase
     .from("projects")
-    .select("id, workspace_id, name, slug, description, color, created_at, updated_at")
+    .select("id, workspace_id, owner_id, created_by, name, slug, description, color, start_date, end_date, status, created_at, updated_at")
     .eq("id", projectId)
     .single();
 
@@ -83,7 +93,7 @@ export async function getWorkspaceProjects(workspaceId: string) {
 
   const { data: projects, error } = await supabase
     .from("projects")
-    .select("id, workspace_id, name, slug, description, color, created_at, updated_at")
+    .select("id, workspace_id, owner_id, created_by, name, slug, description, color, start_date, end_date, status, created_at, updated_at")
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 

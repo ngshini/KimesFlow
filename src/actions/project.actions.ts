@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { projectSchema } from "@/lib/validations/project.schema";
+import { projectSchema, projectUpdateSchema } from "@/lib/validations/project.schema";
 import { createClient } from "@/lib/supabase/server";
 import { routes } from "@/constants/routes";
 import { DEFAULT_TASK_STATUSES } from "@/constants/task-status";
@@ -37,10 +37,15 @@ export async function createProjectAction(_prevState: ProjectActionState, formDa
     .from("projects")
     .insert({
       workspace_id: parsed.data.workspaceId,
+      owner_id: user.id,
+      created_by: user.id,
       name: parsed.data.name,
       slug: parsed.data.slug,
       description: parsed.data.description || null,
       color: parsed.data.color || null,
+      start_date: parsed.data.startDate || null,
+      end_date: parsed.data.endDate || null,
+      status: parsed.data.status ?? "active",
     })
     .select("id")
     .single();
@@ -65,6 +70,7 @@ export async function createProjectAction(_prevState: ProjectActionState, formDa
       slug: status.slug,
       color: status.color,
       position: status.position,
+      is_default: true,
     })),
   );
 
@@ -74,6 +80,54 @@ export async function createProjectAction(_prevState: ProjectActionState, formDa
   revalidatePath(`/projects/${project.id}`);
 
   return { success: "Project đã được tạo." };
+}
+
+export async function updateProjectAction(_prevState: ProjectActionState, formData: FormData): Promise<ProjectActionState> {
+  const parsed = projectUpdateSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bạn cần đăng nhập để cập nhật project." };
+
+  const { data: project, error: projectError } = await supabase.from("projects").select("workspace_id").eq("id", parsed.data.projectId).single();
+  if (projectError || !project) return { error: "Không tìm thấy project." };
+
+  const { data: membership } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", project.workspace_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) return { error: "Bạn không có quyền cập nhật project này." };
+
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      name: parsed.data.name,
+      slug: parsed.data.slug,
+      description: parsed.data.description || null,
+      color: parsed.data.color || null,
+      start_date: parsed.data.startDate || null,
+      end_date: parsed.data.endDate || null,
+      status: parsed.data.status ?? "active",
+    })
+    .eq("id", parsed.data.projectId);
+
+  if (error) {
+    if (error.code === "23505") return { error: "Slug project đã tồn tại trong workspace này." };
+    return { error: error.message };
+  }
+
+  revalidatePath(routes.projects);
+  revalidatePath(`/projects/${parsed.data.projectId}`);
+  revalidatePath(`/workspaces/${project.workspace_id}`);
+
+  return { success: "Project đã được cập nhật." };
 }
 
 export async function deleteProjectAction(formData: FormData) {
